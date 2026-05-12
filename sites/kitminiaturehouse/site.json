@@ -1,0 +1,86 @@
+{
+  "siteId": "kitminiaturehouse",
+  "siteName": "Nookcraft",
+  "domain": "https://kitminiaturehouse.com",
+  "language": "en",
+  "country": "US",
+
+  "positioning": "For bookshelf lovers and creative adults — Nookcraft is the miniature house kit brand that turns the space between your books into a world worth exploring.",
+
+  "targetAudience": [
+    "Adults 25–45, primarily women, who love crafting, bookshelf aesthetics, and Cottagecore",
+    "Gift buyers (any gender) looking for meaningful, hands-on gifts for birthdays, Christmas, Valentine's Day, Mother's Day",
+    "Book Nook enthusiasts building out their shelves",
+    "Stress-relief seekers wanting screen-free focused activity"
+  ],
+
+  "brandRole": "Independent miniature house kit store with English-first instructions and honest difficulty guidance",
+  "conversionGoal": "Guide readers to find the right kit for their skill level and order directly from the site",
+
+  "productDescription": "Laser-cut basswood miniature house kits with full-color English photo instructions, LED lighting, and all components included",
+
+  "mustSay": [
+    "Full-color English photo instructions",
+    "Honest difficulty level: Intermediate (~4–7 hrs) or Advanced (~8–15 hrs), best split across two sessions",
+    "LED string included in every kit",
+    "30-day returns + free replacement parts for missing or damaged pieces",
+    "Laser-cut basswood, ±0.1mm precision"
+  ],
+
+  "mustNotSay": [
+    "high quality", "premium", "beautiful", "stunning", "magical experience",
+    "easy to assemble", "perfect for everyone", "life-changing",
+    "limited time offer", "handmade", "handmade in USA",
+    "ethically sourced", "directly from artisans",
+    "relaxing (use specific sensory description instead)"
+  ],
+
+  "writingStyle": {
+    "tone": "Deliberate, warm without sweetness, honest, immersive",
+    "sentenceStyle": "Specific over vague. Lead with sensory detail and numbers. Process before result.",
+    "preferredSections": ["Direct answer", "Difficulty + time disclosure", "Product plant", "Internal link to pillar page", "FAQ"],
+    "avoidStyle": [
+      "Adjective stacking with no data",
+      "Opening with 'Have you ever' or 'Are you looking for'",
+      "Generic AI transitions (Furthermore, In conclusion, It's worth noting)",
+      "Overselling difficulty as 'simple' or 'easy'"
+    ]
+  },
+
+  "sensitiveTopics": [],
+
+  "internalLinkPriority": ["pillarPages", "categoryPages", "productPages", "blogPosts"],
+
+  "pillarPages": [
+    { "id": "T01", "anchor": "beginner miniature house kit guide", "url": "/pages/beginner-guide/", "topic": "Beginner starter guide" },
+    { "id": "T02", "anchor": "miniature greenhouse and floral kits", "url": "/pages/floral-greenhouse-guide/", "topic": "Floral and greenhouse scene kits" },
+    { "id": "T03", "anchor": "Book Nook miniature kits", "url": "/pages/book-nook-kits/", "topic": "Book Nook kits" },
+    { "id": "T04", "anchor": "miniature craft kits for adults", "url": "/pages/craft-kits-adults-gifts/", "topic": "Adult craft and gift guide" },
+    { "id": "T05", "anchor": "miniature house design ideas", "url": "/pages/miniature-design-ideas/", "topic": "Design inspiration" },
+    { "id": "T06", "anchor": "miniature diorama kit guide", "url": "/pages/diorama-guide/", "topic": "Diorama advanced guide" }
+  ],
+
+  "categoryPages": [
+    { "id": "C01", "anchor": "miniature house kits for adults", "url": "/collections/miniature-house-kits/", "topic": "All kits main collection" },
+    { "id": "C02", "anchor": "miniature room kits", "url": "/collections/miniature-room-kits/", "topic": "Study, library, interior scenes" },
+    { "id": "C03", "anchor": "miniature greenhouse kit", "url": "/collections/floral-nature-kits/", "topic": "Floral and greenhouse kits" },
+    { "id": "C04", "anchor": "miniature bookstore kit", "url": "/collections/bookstore-library-kits/", "topic": "Bookstore, library, Book Nook" },
+    { "id": "C05", "anchor": "miniature dollhouse kits", "url": "/collections/dollhouse-style-kits/", "topic": "Dollhouse style for adults" },
+    { "id": "C06", "anchor": "miniature diorama kit", "url": "/collections/diorama-scene-kits/", "topic": "Diorama scene kits" }
+  ],
+
+  "publishedBlogs": [
+    { "title": "Why Miniature House Kits Are Relaxing", "url": "/blog/why-miniature-house-kits-are-relaxing/" },
+    { "title": "Kit Proportions Revealed", "url": "/blog/kit-miniature-house-proportions-revealed-how-to-choose-the-right-size/" },
+    { "title": "Can Parts Be Mixed and Matched", "url": "/blog/can-kit-miniature-house-parts-with-different-proportions-be-mixed-and-matched/" }
+  ],
+
+  "internalLinkRules": {
+    "perArticle": {
+      "pillarPages": 2,
+      "categoryPages": 1,
+      "productPages": 3
+    },
+    "noOrphanArticles": true
+  }
+}

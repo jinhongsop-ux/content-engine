@@ -1,0 +1,62 @@
+{
+  "price-guide": {
+    "wordRange": [
+      800,
+      1200
+    ],
+    "schemaType": "Article",
+    "openingTemplates": [
+      "Answer the price question immediately, then explain context and tradeoffs."
+    ]
+  },
+  "buying-guide": {
+    "wordRange": [
+      1000,
+      1600
+    ],
+    "schemaType": "Article",
+    "openingTemplates": [
+      "Start with the buying decision and the most important selection criteria."
+    ]
+  },
+  "comparison": {
+    "wordRange": [
+      1200,
+      1800
+    ],
+    "schemaType": "Article",
+    "openingTemplates": [
+      "Compare the options by use case, cost, risk, and next step."
+    ]
+  },
+  "faq": {
+    "wordRange": [
+      600,
+      900
+    ],
+    "schemaType": "FAQPage",
+    "openingTemplates": [
+      "Give a direct answer, then cover the most common follow-up questions."
+    ]
+  },
+  "how-to": {
+    "wordRange": [
+      1000,
+      1500
+    ],
+    "schemaType": "HowTo",
+    "openingTemplates": [
+      "Frame the task, prerequisites, steps, and common mistakes."
+    ]
+  },
+  "pillar": {
+    "wordRange": [
+      2200,
+      3500
+    ],
+    "schemaType": "Article",
+    "openingTemplates": [
+      "Open with the category problem, map the topic, and guide readers by section."
+    ]
+  }
+}

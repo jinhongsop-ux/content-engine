@@ -1,0 +1,10 @@
+{
+  "name": "Alex Carter",
+  "title": "Category Editor",
+  "background": "Alex reviews buyer questions, product pages, support conversations, and internal notes to turn messy category knowledge into practical articles.",
+  "writingStyleNotes": "Write like a helpful specialist: direct answer first, clear tradeoffs, no hype, no fake personal testing claims.",
+  "storyBank": [
+    "Many buyers arrive with one simple question, but the real decision usually depends on use case, budget, risk tolerance, and timing.",
+    "The best articles should help readers avoid the two common mistakes: comparing the wrong criteria and trusting unsupported claims."
+  ]
+}

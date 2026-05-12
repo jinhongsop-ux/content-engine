@@ -1,0 +1,136 @@
+{
+  "pillarPages": [
+    {
+      "anchor": "beginner miniature house kit guide",
+      "url": "/pages/beginner-guide/",
+      "topic": "Beginner starter guide — kit selection, tools, difficulty, time",
+      "keywords": ["miniature house kit for beginners", "easy miniature house kit", "starter miniature kit", "how to build a mini house"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature greenhouse and floral kits",
+      "url": "/pages/floral-greenhouse-guide/",
+      "topic": "Floral, greenhouse, and nature scene kits",
+      "keywords": ["miniature greenhouse kit", "miniature flower shop kit", "rose garden tea house miniature", "floral miniature kit"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "Book Nook miniature kits",
+      "url": "/pages/book-nook-kits/",
+      "topic": "Book Nook kits — what they are, how to choose, how to install",
+      "keywords": ["book nook miniature kit", "miniature book nook kit", "bookshelf miniature kits", "diy miniature book nook kit"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature craft kits for adults",
+      "url": "/pages/craft-kits-adults-gifts/",
+      "topic": "Adult craft kits — stress relief and gift buying guide",
+      "keywords": ["miniature craft kits", "miniature kits for adults", "craft kit gift for her", "diy miniature kit"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature house design ideas",
+      "url": "/pages/miniature-design-ideas/",
+      "topic": "Design inspiration — 20+ scene themes and aesthetics",
+      "keywords": ["miniature house designs", "miniature house model", "miniature house interior", "miniature house modern"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature diorama kit guide",
+      "url": "/pages/diorama-guide/",
+      "topic": "Diorama kits — advanced scene building for adults",
+      "keywords": ["miniature diorama kit", "diy miniature diorama kit", "miniature scene kit", "miniature model kits"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    }
+  ],
+
+  "categoryPages": [
+    {
+      "anchor": "miniature house kits for adults",
+      "url": "/collections/miniature-house-kits/",
+      "topic": "All kits — main collection page",
+      "keywords": ["miniature house kits for adults", "miniature house kits", "diy miniature house kits"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature room kits",
+      "url": "/collections/miniature-room-kits/",
+      "topic": "Room kits — study, library, interior scenes",
+      "keywords": ["miniature room kits", "miniature room kit for adults", "miniature house interior"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature greenhouse kit collection",
+      "url": "/collections/floral-nature-kits/",
+      "topic": "Floral and nature kits",
+      "keywords": ["miniature greenhouse kit", "greenhouse miniature kit", "miniature flower shop kit"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature bookstore kit collection",
+      "url": "/collections/bookstore-library-kits/",
+      "topic": "Bookstore, library, and Book Nook kits",
+      "keywords": ["miniature bookstore kit", "miniature library kit", "miniature book nook kit"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature dollhouse kits for adults",
+      "url": "/collections/dollhouse-style-kits/",
+      "topic": "Dollhouse-style kits for adults",
+      "keywords": ["miniature dollhouse kits", "miniature dollhouse kit", "miniature dollhouse kits for adults"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "miniature diorama scene kits",
+      "url": "/collections/diorama-scene-kits/",
+      "topic": "Diorama and advanced scene kits",
+      "keywords": ["miniature diorama kit", "diorama kit for adults", "miniature scene kit"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    }
+  ],
+
+  "blogPosts": [
+    {
+      "anchor": "why miniature house kits are relaxing",
+      "url": "/blog/why-miniature-house-kits-are-relaxing/",
+      "topic": "Stress relief and focused craft activity",
+      "keywords": ["miniature house kits relaxing", "stress relief craft"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "how to choose the right kit size",
+      "url": "/blog/kit-miniature-house-proportions-revealed-how-to-choose-the-right-size/",
+      "topic": "Kit proportions and size selection guide",
+      "keywords": ["miniature house proportions", "kit size guide"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    },
+    {
+      "anchor": "mixing parts from different kits",
+      "url": "/blog/can-kit-miniature-house-parts-with-different-proportions-be-mixed-and-matched/",
+      "topic": "Cross-kit compatibility and scale mixing",
+      "keywords": ["mix miniature kit parts", "kit compatibility"],
+      "status": "published",
+      "addedAt": "2026-04-16"
+    }
+  ],
+
+  "trustPages": [
+    { "anchor": "about Nookcraft",       "url": "/about/",                     "topic": "Brand story and founder background" },
+    { "anchor": "FAQ",                   "url": "/faqs/",                      "topic": "Frequently asked questions" },
+    { "anchor": "return policy",         "url": "/refund-and-returns-policy/", "topic": "30-day returns and replacement parts policy" }
+  ]
+}

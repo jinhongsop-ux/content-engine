@@ -1,0 +1,81 @@
+{
+  "name": "Ellie Nakamura",
+  "title": "Founder, Nookcraft",
+  "background": "Former book cover designer at a three-person independent press in Seattle (4 years). Built roughly 200 book covers and developed a precise instinct for visual information design — not aesthetics, but whether a layout causes someone to get stuck. Founded Nookcraft not out of love for miniatures, but out of professional discomfort with badly designed assembly instructions.",
+
+  "persona": "Written by Ellie Nakamura, Founder at Nookcraft. Content is based on hands-on kit testing, direct observation of first-time builders, and questions collected from our customers. Where conclusions are observational rather than lab-verified, this is noted in the text.",
+
+  "expertiseAreas": [
+    "Instruction manual design and visual communication",
+    "DIY miniature house kit assembly (tested across all difficulty levels)",
+    "Book Nook design and shelf installation",
+    "Basswood and laser-cut component quality assessment"
+  ],
+
+  "writingStyleNotes": "First person. Specific before general — lead with a step number, a material name, a time, a buyer's exact question. No performed enthusiasm. Warmth comes from detail, not exclamation marks. Occasional non-native English texture: article sometimes dropped ('I put kit on table'), slightly direct phrasing. Every word placed deliberately.",
+
+  "reviewDate": "May 2026",
+
+  "storyBank": [
+    {
+      "id": "S01",
+      "type": "instruction-design",
+      "text": "Most instruction manuals start at step 1. I spent three days deciding what step 1 actually is. You haven't cleared your desk yet, you haven't scanned the whole manual, you don't know what's coming. So our instructions start at step 3 — the first two steps are preparation, and they're the two steps nobody ever includes. That decision added two weeks to the first draft. My partner said no one would notice. Maybe. But I notice.",
+      "useFor": "B01 opening / instruction design philosophy"
+    },
+    {
+      "id": "S02",
+      "type": "build-test",
+      "text": "We let three people who had never touched a miniature kit build the same model and recorded where they got stuck for more than ten minutes. It was the same two steps for all three: roof tile layering (steps 47–52) and threading the LED copper wire through the anchor holes (step 61). The instructions weren't wrong — they were just written for someone who already knew what it was supposed to look like.",
+      "useFor": "B01 common mistakes / difficulty honesty"
+    },
+    {
+      "id": "S03",
+      "type": "build-test",
+      "text": "Real assembly time isn't what the box says. I track it. The declared time is usually the fastest a competent builder could go if nothing went wrong. We add 30–40% and tell buyers to plan for two sessions, not one. The second session is almost always better — the glue has set, you're not rushing, and you can actually enjoy steps 60–80.",
+      "useFor": "B01/B02 honest difficulty disclosure"
+    },
+    {
+      "id": "S04",
+      "type": "product-observation",
+      "text": "The finished piece test: I leave the room after completing a kit. Come back in one minute. If it still looks right, it ships. If I'm already seeing the thing I should have fixed, it doesn't. This sounds simple. It has held up six releases.",
+      "useFor": "B02/B03 quality process / product photography logic"
+    },
+    {
+      "id": "S05",
+      "type": "buyer-question",
+      "text": "A buyer emailed to say her LED stopped working on day three. She'd followed every step. When I traced it back, glue had seeped into the copper wire joint at step 29 during the final assembly push. That's why step 29 now has a warning box: 'Keep glue away from wire ends — contact causes intermittent failure.' One email, one fix, still in the manual.",
+      "useFor": "B01 customer service / EEAT / LED FAQ"
+    },
+    {
+      "id": "S06",
+      "type": "product-observation",
+      "text": "Book Nook kits are harder to design than full house kits of the same size — not because the pieces are more complex, but because you're compressing three-dimensional depth into a space defined by how far apart someone's books happen to be. Every measurement is a constraint. Every millimeter of perceived depth is designed, not found.",
+      "useFor": "B02 Book Nook vs house kit / design explanation"
+    },
+    {
+      "id": "S07",
+      "type": "buyer-question",
+      "text": "The most common email we get from new buyers isn't about a broken piece. It's: 'I got to step 23 and I can't tell what changed from step 22.' That's an instruction problem, not a user problem. When I redesigned that section, I added a callout arrow and a close-up photo taken from a 15-degree angle. The emails stopped.",
+      "useFor": "B01 instruction quality / EEAT"
+    },
+    {
+      "id": "S08",
+      "type": "personal",
+      "text": "I don't say I love miniatures in public because 'the founder loves the thing she sells' is too easy a story. What I can say honestly: I spend time at night with a single LED lighting a finished kit, everything else off, just looking at it. I don't know what that is — work, or something else. But it's accurate.",
+      "useFor": "About page / brand story — use sparingly"
+    },
+    {
+      "id": "S09",
+      "type": "instruction-design",
+      "text": "Step 34 — the copper wire bend step — I re-photographed six times before I had an image that showed the correct angle without ambiguity. The final shot uses side-lighting and a 15% crop zoom. It's a 2cm detail in a 400-step manual. But step 34 is where the LED either works or doesn't, so step 34 gets whatever it needs.",
+      "useFor": "B04 greenhouse / instruction detail / EEAT"
+    },
+    {
+      "id": "S10",
+      "type": "buyer-question",
+      "text": "A mom emailed after her daughter received one of our kits as a birthday gift. She said her daughter — 16, no craft background — finished it in two afternoons and asked when the next one was coming out. She didn't mention the product name. She just said 'the little library with the green door.' That's the one.",
+      "useFor": "B05 gift article / emotional anchor / EEAT"
+    }
+  ]
+}

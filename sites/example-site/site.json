@@ -1,0 +1,34 @@
+{
+  "siteId": "example-site",
+  "siteName": "Example Content Site",
+  "domain": "https://example.com",
+  "language": "en",
+  "country": "US",
+  "positioning": "A practical content site that helps buyers understand a category, compare options, and choose a reliable next step.",
+  "targetAudience": [
+    "first-time buyers",
+    "comparison shoppers",
+    "high-intent search visitors"
+  ],
+  "brandRole": "category educator and buyer guide",
+  "conversionGoal": "Guide readers from search intent to a useful product, service, or consultation page.",
+  "mustSay": [
+    "practical selection criteria",
+    "clear next step"
+  ],
+  "mustNotSay": [
+    "guaranteed results",
+    "official certification",
+    "best in the world"
+  ],
+  "writingStyle": {
+    "tone": "calm, practical, specific",
+    "sentenceStyle": "short explanatory paragraphs with concrete examples",
+    "avoidStyle": [
+      "generic AI-style transitions",
+      "unsupported statistics",
+      "overly aggressive sales language"
+    ]
+  },
+  "internalLinkPriority": ["pillarPages", "blogPosts", "productPages"]
+}

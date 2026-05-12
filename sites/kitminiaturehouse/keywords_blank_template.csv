@@ -1,0 +1,2 @@
+keyword,urlslug,priority,intent,articletype,targetwordcount,secondarykeywords,variants,direction,internallinkingurls,volume,kd,cannibalcheck,pillartarget,blogid
+[主关键词],[url-slug-英文连字符],P1/P2/P3,Informational/Commercial/Transactional,how-to/buying-guide/faq/comparison/listicle/pillar,[目标字数],[次要关键词逗号分隔],[变体词/长尾词逗号分隔],[文章方向一句话+引用故事编号+Schema类型],[内链URL逗号分隔],[月搜索量],[KD难度0-100],[已有相似文章slug留空表示无冲突],[必须内链回的专题页URL],[B01-B99]

@@ -1,0 +1,131 @@
+{
+  "terminology": [
+    { "en": "DIY Miniature House Kit",        "definition": "A complete kit containing laser-cut wooden parts, miniature furniture, LED lighting, and instructions for assembling a scale model scene." },
+    { "en": "Book Nook / Book Nook Insert",   "definition": "A miniature scene designed to fit between books on a shelf. Viewed from the side, it creates the illusion of a world behind the bookshelf. Fastest-growing subcategory in the kit market." },
+    { "en": "Basswood Plywood",               "definition": "Light, fine-grained natural wood used in premium kits. Laser-cuts cleanly, takes paint well, and produces a warm natural finish." },
+    { "en": "MDF Board",                      "definition": "Medium-density fiberboard. Cheaper substitute for basswood. Heavier, less attractive grain. Common in budget kits." },
+    { "en": "Laser-Cut Plywood",              "definition": "Wooden parts cut by laser to ±0.1mm precision. Quality indicator — tight tolerances mean snap-fit joints and cleaner assembly." },
+    { "en": "Piece Count / Parts Count",      "definition": "Total number of laser-cut components in the kit. Primary indicator of complexity and richness. Range: 50 (beginner) to 500+ (advanced)." },
+    { "en": "Assembly Time / Build Time",      "definition": "Estimated hours to complete the kit. Declared times often underestimate — add 30–40% for realistic planning. Intermediate: 4–7 hrs. Advanced: 8–15 hrs." },
+    { "en": "Difficulty Level",               "definition": "Beginner / Intermediate / Advanced. Nookcraft uses Intermediate and Advanced only (no beginner-level kits currently)." },
+    { "en": "LED Light Kit / LED String",     "definition": "Warm-white LED with wire and battery compartment, included in every Nookcraft kit. Lights the finished scene. Battery not included." },
+    { "en": "Dust Cover / Display Case",      "definition": "Protective transparent cover for the finished kit. Sold separately. High-frequency cross-sell item." },
+    { "en": "Scale (1:12 / 1:24)",            "definition": "Ratio of model to real object. 1:12 is the standard dollhouse scale (1 inch = 1 real foot). Affects compatibility with third-party accessories." },
+    { "en": "Mortise and Tenon / Snap-Fit",   "definition": "Precision joinery where parts interlock without glue. Quality indicator in premium kits." },
+    { "en": "Super Glue / Cyanoacrylate",     "definition": "Recommended adhesive for wood joints. Fast-curing, strong bond. Usually not included in kits — buyers must purchase separately." },
+    { "en": "Diorama",                        "definition": "A three-dimensional scene model. More advanced than a standard house kit — emphasizes scene-building over architectural assembly." },
+    { "en": "Cottagecore",                    "definition": "Aesthetic movement centered on rural cottage life, natural materials, and handmade objects. Core visual identity of the floral/greenhouse kit segment." },
+    { "en": "Button Cell / CR2032",           "definition": "Small battery type used in Book Nook and compact kits. Not included in kits. Buyers frequently forget to purchase separately." }
+  ],
+
+  "authorityFacts": [
+    "All Nookcraft kits include full-color English photo instructions — one photo per step, designed for English-speaking first-time builders.",
+    "LED string is included in every Nookcraft kit. Many competing kits do not include LED. This is a material difference and must be stated explicitly.",
+    "Kits use laser-cut basswood plywood at ±0.1mm precision. No MDF substitutions in current product line.",
+    "Difficulty levels: Intermediate = approximately 4–7 hours, best split across two sessions. Advanced = approximately 8–15 hours.",
+    "30-day return policy. Missing or damaged parts replaced free — no need to return the original kit.",
+    "Book Nook kits are structurally more complex than standard house kits of the same footprint due to depth-compression design constraints.",
+    "Batteries are NOT included in any kit. Most kits require AAA or CR2032 button cells.",
+    "Glue is NOT included in most kits. Recommend: gel-type Super Glue for wood joints, glue stick for printed paper decorations.",
+    "Completed kits using basswood have a usable display life of 10+ years when kept out of direct sunlight.",
+    "Primary competitor weakness: Rolife and Robotime instruction manuals are either in Chinese or use unclear graphics. English clarity is Nookcraft's primary differentiation."
+  ],
+
+  "buyerFAQ": [
+    {
+      "question": "What's included in the kit? Do I need to buy anything else?",
+      "answer": "Every kit includes all laser-cut wooden parts, miniature furniture components, LED string lights, and full-color English photo instructions. You'll need to provide: gel-type Super Glue (for wood), a glue stick (for paper decorations), tweezers, and batteries (AAA or CR2032 — check product page for specific type). Some kits include glue — the product page will specify."
+    },
+    {
+      "question": "Are the instructions in English?",
+      "answer": "Yes. Every Nookcraft kit comes with full-color English photo instructions. Each step has a photograph. The style is closer to IKEA assembly guides than text-heavy manuals — photos lead, text supports."
+    },
+    {
+      "question": "How long does a kit take to build?",
+      "answer": "Intermediate kits: approximately 4–7 hours. Advanced kits: approximately 8–15 hours. We recommend splitting the build across two sessions — glue sets better and you'll enjoy the later steps more when you're not rushing."
+    },
+    {
+      "question": "I'm a complete beginner. Can I do this?",
+      "answer": "Yes, with the right kit choice. You don't need craft experience — just patience and a pair of tweezers. Start with an Intermediate kit rated under 200 pieces and under 6 hours. The instructions are designed so that first-time builders can follow them without prior knowledge."
+    },
+    {
+      "question": "How do I remove parts from the wooden sheet without breaking them?",
+      "answer": "Press gently from the back toward the front, along the laser-cut line. For small or delicate pieces, score lightly around the cut line with a craft knife first. Never force or snap — almost all breakage comes from pulling rather than pressing."
+    },
+    {
+      "question": "The LED stopped working after I finished building. What happened?",
+      "answer": "The most common cause is glue contact with the copper wire joints during the final assembly stage. Check step 29 (or the equivalent in your kit) — the warning notes to keep glue away from wire ends. If the connection is already compromised, use a toothpick to clear the joint and reseat the wire. Contact us with a photo and we'll help troubleshoot."
+    },
+    {
+      "question": "What is a Book Nook? How does the kit fit into my shelf?",
+      "answer": "A Book Nook is a miniature scene designed to sit between books on a standard shelf. Viewed from the side, it appears as a tiny world behind the bookshelf. Our Book Nook kits are sized to fit most standard shelves — assembled dimensions and recommended shelf depth are listed on each product page."
+    },
+    {
+      "question": "Is this a good gift? Does it arrive in gift-ready packaging?",
+      "answer": "Yes. The outer box shows the finished scene and opens to reveal neatly bagged components. No additional wrapping needed. Most gift buyers report the unboxing experience is itself part of the gift. Estimated build time is printed on the box so the recipient knows what to expect."
+    },
+    {
+      "question": "What if a piece is missing or broken when I open the kit?",
+      "answer": "Contact us within 7 days of receipt with a photo. We'll ship replacement parts free — no need to return anything. Response time is within 24 hours on business days."
+    },
+    {
+      "question": "Can I paint or customize the finished kit?",
+      "answer": "Yes. Basswood takes acrylic paint well. Many builders add color after assembly — the natural wood surface is ready to paint without priming. Fine-tip markers work for adding wood-grain texture or detail lines."
+    }
+  ],
+
+  "buyerQuestions": [
+    "Why does my step 22 look the same as step 23?",
+    "Does the LED wire go in before or after I glue the roof?",
+    "My kit says it takes 5 hours but I'm at hour 8 and still not done — is that normal?",
+    "Can I buy extra pieces for the one I snapped?",
+    "What glue is best — the package didn't come with any",
+    "Is this okay for a 12-year-old to do alone?",
+    "The bookshelf insert is too wide for my shelf — what are the actual dimensions?",
+    "Can I mix parts from two different kits?",
+    "How do I keep dust off it after I finish?"
+  ],
+
+  "sellingPoints": [
+    "Full-color English photo instructions — one photo per step, designed for first-time builders",
+    "LED string included in every kit — no additional purchase needed",
+    "Honest difficulty labeling: Intermediate 4–7 hrs / Advanced 8–15 hrs",
+    "Laser-cut basswood at ±0.1mm precision — clean snap-fit joints, no rough edges",
+    "All components included in one box — open and build",
+    "30-day returns + free replacement parts for missing or damaged pieces",
+    "Finished kit is a permanent display piece — bookshelf, desk, or display case",
+    "Book Nook format fits any standard shelf gap between books"
+  ],
+
+  "objections": [
+    "Worried it will be too hard and end up half-finished",
+    "Worried the instructions are in Chinese or unclear graphics",
+    "Worried about pieces missing or broken on arrival",
+    "Worried about hidden costs (glue, batteries not included)",
+    "Worried about quality — it ships from China",
+    "Worried the gift packaging won't look impressive enough",
+    "Not sure which difficulty level is right for them"
+  ],
+
+  "forbiddenClaims": [
+    "Handmade", "Handmade in USA", "Handmade in Seattle",
+    "Ethically sourced", "Directly from artisans", "Sustainably harvested",
+    "Ships from our Seattle workshop (unless verified true at time of writing)",
+    "IKEA-level simplicity",
+    "No experience needed (use: no prior craft experience needed, just patience)"
+  ],
+
+  "requiredClaims": [
+    "Full-color English photo instructions",
+    "LED lighting included",
+    "Honest difficulty level with estimated hours",
+    "Free replacement parts policy"
+  ],
+
+  "competitorContext": {
+    "primaryGap": "Rolife and Robotime instructions are in Chinese or have unclear graphics. English clarity is the primary differentiation.",
+    "secondaryGap": "No competitor has a dedicated Book Nook content hub. Competitors list Book Nook products in general product lists without specialization.",
+    "thirdGap": "No competitor provides YouTube tutorial library or post-purchase build support. 'Someone to help you finish it' is a service gap.",
+    "ourAdvantage": "English instructions + honest difficulty grading + Book Nook specialization + post-purchase support ecosystem"
+  }
+}

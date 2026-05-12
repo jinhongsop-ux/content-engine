@@ -1,0 +1,48 @@
+{
+  "hardFail": [
+    {
+      "id": "empty_article",
+      "check": "article_tag_missing",
+      "message": "Missing <article> root element"
+    },
+    {
+      "id": "too_short",
+      "check": "too_short",
+      "message": "Article is shorter than the configured word range"
+    },
+    {
+      "id": "forbidden_word",
+      "check": "forbidden_word_found",
+      "message": "Contains forbidden wording from site.json"
+    },
+    {
+      "id": "editor_markers",
+      "check": "editor_markers_found",
+      "message": "Contains TODO/editor/placeholder markers"
+    }
+  ],
+  "warnings": [
+    {
+      "id": "cta_missing",
+      "check": "cta_missing",
+      "message": "No clear CTA detected"
+    },
+    {
+      "id": "internal_links_zero",
+      "check": "internal_links_zero",
+      "message": "No internal links detected"
+    },
+    {
+      "id": "author_block_missing",
+      "check": "author_block_missing",
+      "message": "Author block missing"
+    }
+  ],
+  "scoreWeights": {
+    "seoStructure": 20,
+    "brandFit": 20,
+    "helpfulness": 20,
+    "readability": 20,
+    "publishReadiness": 20
+  }
+}

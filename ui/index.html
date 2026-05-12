@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内容生产引擎</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#ffffff; --bg2:#f6f5f2; --bg3:#eeede9;
+  --border:rgba(0,0,0,.1); --border2:rgba(0,0,0,.2);
+  --text:#1c1c1a; --text2:#595956; --text3:#99998f;
+  --blue:#185FA5; --blue-bg:#E6F1FB;
+  --green:#0F6E56; --green-bg:#E1F5EE;
+  --red:#A32D2D; --red-bg:#FCEBEB;
+  --amber:#7A4600; --amber-bg:#FAEEDA;
+  --r:7px; --r-lg:11px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#1b1b19; --bg2:#232320; --bg3:#2b2b28;
+    --border:rgba(255,255,255,.09); --border2:rgba(255,255,255,.18);
+    --text:#e5e5e0; --text2:#a0a09a; --text3:#606058;
+    --blue:#85B7EB; --blue-bg:#042C53;
+    --green:#5DCAA5; --green-bg:#04342C;
+    --red:#F09595; --red-bg:#501313;
+    --amber:#EF9F27; --amber-bg:#412402;
+  }
+}
+body { font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif; font-size:13px; color:var(--text); background:var(--bg3); }
+button, input, textarea, select { font-family:inherit; }
+
+.top { height:46px; background:var(--bg); border-bottom:.5px solid var(--border); display:flex; align-items:center; gap:10px; padding:0 16px; position:sticky; top:0; z-index:100; }
+.logo { font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; }
+.site-sel { border:.5px solid var(--border2); border-radius:var(--r); padding:5px 9px; font-size:12px; background:var(--bg); color:var(--text); cursor:pointer; max-width:180px; }
+.nav-tabs { display:flex; gap:2px; height:100%; align-items:center; }
+.nav-tab { border:none; border-bottom:2px solid transparent; background:transparent; color:var(--text2); padding:14px 10px 12px; font-size:12px; cursor:pointer; height:46px; white-space:nowrap; }
+.nav-tab.on { color:var(--blue); border-bottom-color:var(--blue); background:var(--blue-bg); }
+.api-inp { border:.5px solid var(--border2); border-radius:var(--r); padding:5px 9px; font-size:12px; background:var(--bg); color:var(--text); width:220px; font-family:monospace; }
+.sp { flex:1; }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:4px; padding:6px 12px; border:.5px solid var(--border2); border-radius:var(--r); font-size:12px; font-weight:500; cursor:pointer; background:var(--bg); color:var(--text); white-space:nowrap; transition:background .12s; text-decoration:none; }
+.btn:hover { background:var(--bg2); }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+.btn-blue { background:var(--blue-bg); color:var(--blue); border-color:var(--blue); }
+.btn-green { background:var(--green-bg); color:var(--green); border-color:var(--green); }
+.btn-red { background:var(--red-bg); color:var(--red); border-color:var(--red); }
+.btn-sm { padding:4px 9px; font-size:11px; }
+.btn-icon { padding:4px 7px; min-width:28px; }
+
+.layout { display:flex; height:calc(100vh - 46px); }
+.left { width:280px; flex-shrink:0; background:var(--bg); border-right:.5px solid var(--border); display:flex; flex-direction:column; }
+.right { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+.panel { display:none; flex:1; min-height:0; overflow:hidden; }
+.panel.on { display:flex; flex-direction:column; }
+.scroll-panel { overflow:auto; padding:14px; }
+
+.stats { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); border-bottom:.5px solid var(--border); }
+.stat { background:var(--bg); padding:10px 14px; }
+.stat-n { font-size:22px; font-weight:600; color:var(--text); line-height:1; }
+.stat-l { font-size:11px; color:var(--text3); margin-top:3px; }
+.left-ctrl { padding:10px 12px; border-bottom:.5px solid var(--border); display:flex; flex-direction:column; gap:7px; }
+.ctrl-row { display:flex; gap:6px; }
+.conc-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2); }
+.conc-row input[type=range] { flex:1; }
+.conc-val { min-width:14px; font-weight:500; color:var(--text); }
+.prog-wrap { padding:0 12px 6px; display:none; }
+.prog-bar { height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+.prog-fill { height:100%; background:var(--blue); border-radius:2px; width:0; transition:width .3s; }
+.prog-lbl { font-size:11px; color:var(--text3); margin-top:4px; }
+.log-head { padding:8px 12px 4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); }
+.log-area { flex:1; overflow-y:auto; padding:0 12px 10px; }
+.log-line { font-size:11px; font-family:'SF Mono','Consolas',monospace; line-height:1.7; border-bottom:.5px solid var(--border); padding:2px 0; color:var(--text3); }
+.log-line.ok { color:var(--green); }
+.log-line.err { color:var(--red); }
+.log-line.run { color:var(--blue); }
+
+.table-toolbar, .section-toolbar { display:flex; align-items:center; gap:8px; padding:9px 14px; background:var(--bg); border-bottom:.5px solid var(--border); flex-shrink:0; }
+.toolbar-title { font-size:13px; font-weight:500; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.table-wrap { flex:1; overflow:auto; }
+table { width:100%; border-collapse:collapse; font-size:12px; min-width:960px; }
+thead th { background:var(--bg2); padding:7px 10px; text-align:left; font-size:10px; font-weight:600; letter-spacing:.04em; color:var(--text3); border-bottom:.5px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:10; }
+tbody tr { border-bottom:.5px solid var(--border); }
+tbody tr:hover { background:var(--bg2); }
+tbody tr.selected { background:var(--blue-bg); }
+td { padding:0; vertical-align:middle; }
+.cell { padding:7px 10px; display:block; }
+.cell-kw { font-weight:500; color:var(--text); }
+.cell-edit { width:100%; border:none; background:transparent; font:inherit; color:var(--text); padding:7px 10px; outline:none; }
+.cell-edit:focus { background:var(--bg); box-shadow:inset 0 0 0 1.5px var(--blue); border-radius:0; }
+td.col-actions { width:150px; }
+.row-acts { display:flex; gap:4px; padding:4px 8px; justify-content:flex-end; }
+.badge { display:inline-block; font-size:10px; padding:2px 8px; border-radius:9px; font-weight:500; white-space:nowrap; }
+.badge-queued { background:var(--bg3); color:var(--text3); }
+.badge-outlined { background:var(--amber-bg); color:var(--amber); }
+.badge-running { background:var(--blue-bg); color:var(--blue); }
+.badge-done { background:var(--green-bg); color:var(--green); }
+.badge-failed { background:var(--red-bg); color:var(--red); }
+.err-tip { font-size:10px; color:var(--red); margin-top:2px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+
+.add-row-panel { background:var(--bg); border-top:.5px solid var(--border); padding:12px 16px; display:none; flex-shrink:0; }
+.add-row-panel.open { display:block; }
+.add-row-title { font-size:12px; font-weight:500; color:var(--text2); margin-bottom:10px; }
+.add-grid, .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px; margin-bottom:10px; }
+.add-field label, .form-field label { font-size:10px; font-weight:600; letter-spacing:.04em; color:var(--text3); display:block; margin-bottom:3px; }
+.add-field input, .add-field select, .add-field textarea,
+.form-field input, .form-field select, .form-field textarea {
+  width:100%; border:.5px solid var(--border2); border-radius:var(--r); padding:6px 8px; font:inherit; font-size:12px; background:var(--bg); color:var(--text);
+}
+.add-field textarea, .form-field textarea { resize:vertical; min-height:64px; }
+.span-all { grid-column:1/-1; }
+.add-acts, .form-actions { display:flex; gap:7px; align-items:center; }
+.hint { font-size:11px; color:var(--text3); }
+.notice { display:none; margin:12px 14px 0; padding:8px 10px; border-radius:var(--r); font-size:12px; }
+.notice.ok { display:block; background:var(--green-bg); color:var(--green); }
+.notice.err { display:block; background:var(--red-bg); color:var(--red); }
+
+.subtabs { display:flex; gap:4px; padding:8px 14px 0; background:var(--bg); border-bottom:.5px solid var(--border); flex-shrink:0; }
+.subtab { padding:8px 12px; font-size:12px; font-weight:500; cursor:pointer; color:var(--text2); border-bottom:2px solid transparent; margin-bottom:-.5px; background:transparent; border-left:none; border-right:none; border-top:none; }
+.subtab.on { color:var(--blue); border-bottom-color:var(--blue); }
+.subpane { display:none; }
+.subpane.on { display:block; }
+.config-card, .logic-card, details.config-card { background:var(--bg); border:.5px solid var(--border); border-radius:var(--r-lg); padding:12px; margin-bottom:10px; }
+.card-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.card-title { font-size:13px; font-weight:600; flex:1; }
+summary { cursor:pointer; font-weight:600; color:var(--text); }
+.mini-table { min-width:0; width:100%; }
+.mini-table th { position:static; }
+.mini-table input, .mini-table select { width:100%; border:.5px solid var(--border2); border-radius:var(--r); padding:5px 7px; background:var(--bg); color:var(--text); font-size:12px; }
+.list-row { display:flex; gap:6px; margin-bottom:6px; }
+.list-row input { flex:1; border:.5px solid var(--border2); border-radius:var(--r); padding:6px 8px; background:var(--bg); color:var(--text); }
+.char-count { font-size:10px; color:var(--text3); margin-left:auto; }
+.logic-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:10px; }
+.logic-card textarea { width:100%; min-height:84px; border:.5px solid var(--border2); border-radius:var(--r); background:var(--bg); color:var(--text); padding:7px; resize:vertical; font-size:12px; }
+.weight-row { display:grid; grid-template-columns:110px 1fr 42px; align-items:center; gap:8px; margin-bottom:8px; font-size:12px; color:var(--text2); }
+.weight-total { font-size:12px; font-weight:600; color:var(--text); margin:8px 0; }
+
+.drawer { position:fixed; right:0; top:46px; bottom:0; width:540px; background:var(--bg); border-left:.5px solid var(--border); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .2s; z-index:200; box-shadow:-12px 0 24px rgba(0,0,0,.08); }
+.drawer.open { transform:translateX(0); }
+.drawer-head { display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:.5px solid var(--border); background:var(--bg2); flex-shrink:0; }
+.drawer-kw { font-size:13px; font-weight:500; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tabs { display:flex; border-bottom:.5px solid var(--border); background:var(--bg); flex-shrink:0; }
+.tab { padding:8px 14px; font-size:12px; font-weight:500; cursor:pointer; color:var(--text2); border-bottom:2px solid transparent; margin-bottom:-.5px; white-space:nowrap; }
+.tab.on { color:var(--blue); border-bottom-color:var(--blue); }
+.tab-pane { display:none; flex:1; overflow-y:auto; padding:14px 16px; }
+.tab-pane.on { display:block; }
+.article-render { font-size:14px; line-height:1.8; color:var(--text); }
+.article-render h1 { font-size:20px; font-weight:600; margin-bottom:12px; }
+.article-render h2 { font-size:16px; font-weight:600; margin:18px 0 7px; }
+.article-render h3 { font-size:14px; font-weight:600; margin:14px 0 5px; }
+.article-render p { margin-bottom:11px; }
+.article-render ul, .article-render ol { margin:0 0 11px 18px; }
+.src-box, .code-box { font-family:'SF Mono','Consolas',monospace; font-size:11px; white-space:pre-wrap; word-break:break-word; background:var(--bg2); padding:12px; border-radius:var(--r); }
+.pack-section { border-bottom:.5px solid var(--border); padding:10px 0; }
+.pack-section:first-child { padding-top:0; }
+.pack-title { font-size:12px; font-weight:600; color:var(--text2); margin-bottom:7px; }
+.seo-title-list { display:flex; flex-direction:column; gap:6px; }
+.seo-title-btn { justify-content:flex-start; white-space:normal; text-align:left; }
+.meta-box { width:100%; min-height:72px; border:.5px solid var(--border2); border-radius:var(--r); padding:8px; background:var(--bg); color:var(--text); resize:vertical; }
+.check-row { display:flex; align-items:center; gap:8px; font-size:12px; padding:4px 0; color:var(--text2); }
+.check-row.done { color:var(--green); }
+.check-mark { width:16px; height:16px; border:.5px solid var(--border2); border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; }
+.check-row.done .check-mark { background:var(--green-bg); border-color:var(--green); color:var(--green); }
+.outline-list { display:flex; flex-direction:column; gap:10px; }
+.outline-item { border-bottom:.5px solid var(--border); padding-bottom:8px; }
+.outline-item h3 { font-size:13px; margin-bottom:5px; }
+.outline-item p { color:var(--text2); font-size:12px; margin-bottom:5px; }
+.outline-item ul { margin-left:18px; color:var(--text2); line-height:1.7; }
+.qa-score-big { font-size:28px; font-weight:700; color:var(--text); }
+.qa-wrap { display:flex; flex-direction:column; gap:6px; }
+.qa-item { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:.5px solid var(--border); font-size:12px; }
+.qa-label { color:var(--text2); width:90px; flex-shrink:0; }
+.qa-bar-wrap { flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+.qa-bar-fill { height:100%; border-radius:3px; background:var(--green); }
+.qa-val { font-size:11px; font-weight:500; color:var(--text); min-width:28px; text-align:right; }
+.qa-fail-list { margin-top:10px; display:flex; flex-direction:column; gap:5px; }
+.qa-fail-item { font-size:11px; padding:5px 9px; border-radius:var(--r); }
+.qa-fail-item.hard { background:var(--red-bg); color:var(--red); }
+.qa-fail-item.warn { background:var(--amber-bg); color:var(--amber); }
+
+@media (max-width:1100px) {
+  .api-inp { width:160px; }
+  .nav-tab { padding-left:7px; padding-right:7px; }
+  .left { width:260px; }
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <span class="logo">内容生产引擎</span>
+  <select class="site-sel" id="siteSel" onchange="switchSite(this.value)"><option>加载中…</option></select>
+  <div class="nav-tabs">
+    <button class="nav-tab on" data-panel="keywords" onclick="switchPanel('keywords')">关键词任务</button>
+    <button class="nav-tab" data-panel="config" onclick="switchPanel('config')">站点配置</button>
+    <button class="nav-tab" data-panel="logic" onclick="switchPanel('logic')">运行逻辑</button>
+    <button class="nav-tab" data-panel="model" onclick="switchPanel('model')">模型设置</button>
+    <button class="nav-tab" data-panel="create" onclick="switchPanel('create')">新增站点</button>
+  </div>
+  <span class="sp"></span>
+  <input class="api-inp" id="apiKey" type="password" placeholder="API 密钥（或设置环境变量）">
+  <button class="btn btn-sm" onclick="importCsv()">↑ 导入 CSV</button>
+  <button class="btn btn-sm" onclick="exportCsv()">↓ 导出 CSV</button>
+  <button class="btn btn-sm" onclick="dlZip()">↓ 下载文章 ZIP</button>
+  <button class="btn btn-sm" onclick="dlMeta()">↓ 元数据表格</button>
+  <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="onCsvFile(this)">
+</div>
+
+<div class="layout">
+  <aside class="left">
+    <div class="stats">
+      <div class="stat"><div class="stat-n" id="sTotal">—</div><div class="stat-l">总计</div></div>
+      <div class="stat"><div class="stat-n" id="sDone" style="color:var(--green)">—</div><div class="stat-l">已完成</div></div>
+      <div class="stat"><div class="stat-n" id="sQueued" style="color:var(--text3)">—</div><div class="stat-l">待生成</div></div>
+      <div class="stat"><div class="stat-n" id="sFailed" style="color:var(--red)">—</div><div class="stat-l">失败</div></div>
+    </div>
+    <div class="left-ctrl">
+      <div class="ctrl-row">
+        <button class="btn btn-blue" style="flex:1" onclick="runAll()">▶ 运行全部待生成</button>
+        <button class="btn btn-sm" onclick="retryFailed()">重试失败</button>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn btn-sm" onclick="resetAll()">重置全部</button>
+        <button class="btn btn-sm" onclick="resetSelected()">重置已选</button>
+      </div>
+      <div class="conc-row">
+        <span>并发数</span>
+        <input type="range" min="1" max="5" value="2" id="conc" oninput="document.getElementById('concV').textContent=this.value">
+        <span class="conc-val" id="concV">2</span>
+      </div>
+    </div>
+    <div class="prog-wrap" id="progWrap">
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+      <div class="prog-lbl" id="progLbl"></div>
+    </div>
+    <div class="log-head">运行日志</div>
+    <div class="log-area" id="log"></div>
+  </aside>
+
+  <main class="right">
+    <section class="panel on" id="panel-keywords">
+      <div class="table-toolbar">
+        <span class="toolbar-title" id="tableTitle">关键词规划表</span>
+        <button class="btn btn-green btn-sm" onclick="toggleAddRow()">＋ 新增关键词</button>
+      </div>
+      <div class="table-wrap">
+        <table id="kwTable">
+          <thead>
+            <tr>
+              <th style="width:32px"><input type="checkbox" id="selAll" onchange="toggleSelAll(this.checked)"></th>
+              <th>关键词</th><th>URL Slug</th><th>优先级</th><th>文章类型</th><th>目标字数</th><th>状态</th><th>QA 分</th><th style="width:100px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="kwBody"></tbody>
+        </table>
+      </div>
+      <div class="add-row-panel" id="addRowPanel">
+        <div class="add-row-title">新增关键词 — 填写完成后点击「添加并入队」</div>
+        <div class="add-grid">
+          <div class="add-field"><label>关键词 *</label><input id="f_keyword" placeholder="e.g. where to buy stamps"></div>
+          <div class="add-field"><label>URL Slug</label><input id="f_urlslug" placeholder="留空自动生成"></div>
+          <div class="add-field"><label>优先级</label><select id="f_priority"><option>P1</option><option>P2</option><option>P3</option></select></div>
+          <div class="add-field"><label>文章类型</label><select id="f_articletype"></select></div>
+          <div class="add-field"><label>目标字数</label><input id="f_targetwordcount" type="number" placeholder="1200"></div>
+          <div class="add-field"><label>搜索意图</label><input id="f_intent" placeholder="informational"></div>
+          <div class="add-field"><label>次要关键词</label><input id="f_secondarykeywords" placeholder="逗号分隔"></div>
+          <div class="add-field"><label>变体 / 长尾词</label><input id="f_variants"></div>
+          <div class="add-field"><label>内链 URL</label><input id="f_internallinkingurls" placeholder="/blog/url/, /page/url/"></div>
+          <div class="add-field span-all"><label>文章方向 / 备注</label><textarea id="f_direction" rows="2" placeholder="文章角度、重点说明、竞品参考等…"></textarea></div>
+        </div>
+        <div class="add-acts">
+          <button class="btn btn-green" onclick="submitAdd()">添加并入队</button>
+          <button class="btn" onclick="toggleAddRow(false)">取消</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-config">
+      <div class="section-toolbar">
+        <span class="toolbar-title">当前站点：<span id="configSiteId">—</span></span>
+        <button class="btn btn-green btn-sm" id="saveAllBtn" onclick="saveAllConfigs(this)">保存所有更改</button>
+      </div>
+      <div id="configNotice" class="notice"></div>
+      <div class="subtabs" id="configTabs">
+        <button class="subtab on" onclick="switchSubtab('config','site')">品牌设置</button>
+        <button class="subtab" onclick="switchSubtab('config','author')">作者档案</button>
+        <button class="subtab" onclick="switchSubtab('config','knowledge')">品类知识</button>
+        <button class="subtab" onclick="switchSubtab('config','links')">内链库</button>
+      </div>
+      <div class="scroll-panel">
+        <div class="subpane on" id="config-site"></div>
+        <div class="subpane" id="config-author"></div>
+        <div class="subpane" id="config-knowledge"></div>
+        <div class="subpane" id="config-links"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-logic">
+      <div class="section-toolbar">
+        <span class="toolbar-title">自定义文章生成策略。修改后将覆盖引擎默认值，删除则恢复默认。</span>
+      </div>
+      <div class="subtabs" id="logicTabs">
+        <button class="subtab on" onclick="switchSubtab('logic','article-types')">文章类型策略</button>
+        <button class="subtab" onclick="switchSubtab('logic','prompt-sections')">Prompt区块</button>
+        <button class="subtab" onclick="switchSubtab('logic','qa-rules')">QA规则</button>
+      </div>
+      <div class="scroll-panel">
+        <div class="subpane on" id="logic-article-types"></div>
+        <div class="subpane" id="logic-prompt-sections"></div>
+        <div class="subpane" id="logic-qa-rules"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-create">
+      <div class="section-toolbar"><span class="toolbar-title">新增站点 — 创建一套新的站点文件夹和默认配置</span></div>
+      <div id="createNotice" class="notice"></div>
+      <div class="scroll-panel">
+        <div class="config-card">
+          <div class="form-grid">
+            <div class="form-field"><label>网站ID *</label><input id="n_siteId" placeholder="my-site"></div>
+            <div class="form-field"><label>网站名称</label><input id="n_siteName"></div>
+            <div class="form-field"><label>域名</label><input id="n_domain" placeholder="https://..."></div>
+            <div class="form-field"><label>语言</label><input id="n_language" value="en"></div>
+            <div class="form-field span-all"><label>网站定位</label><textarea id="n_positioning" placeholder="这个网站帮助谁，解决什么问题，最终引导什么转化"></textarea></div>
+            <div class="form-field"><label>作者姓名</label><input id="n_authorName"></div>
+            <div class="form-field"><label>作者职位</label><input id="n_authorTitle"></div>
+            <div class="form-field"><label>写作语气</label><input id="n_tone" placeholder="clear, practical, specific"></div>
+            <div class="form-field"><label>目标受众</label><input id="n_targetAudience" placeholder="逗号分隔"></div>
+            <div class="form-field span-all"><label>必须表达</label><textarea id="n_mustSay" placeholder="一行一条"></textarea></div>
+            <div class="form-field span-all"><label>禁止表达</label><textarea id="n_mustNotSay" placeholder="一行一条"></textarea></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-green" onclick="createSite(this)">创建站点</button>
+            <span class="hint">创建后会生成 site.json、knowledge.json、author.json、links.json、keywords.csv</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-model">
+      <div class="section-toolbar">
+        <span class="toolbar-title">模型设置 — 选择常用模型或填写自定义接口</span>
+        <button class="btn btn-green btn-sm" onclick="saveModelSettings(this)">保存模型设置</button>
+      </div>
+      <div class="scroll-panel">
+        <div class="config-card">
+          <div class="form-grid">
+            <div class="form-field">
+              <label>常用模型</label>
+              <select id="m_preset" onchange="applyModelPreset(this.value)">
+                <option value="xiaomimimo">Xiaomi MiMo V2.5（常用）</option>
+                <option value="xiaomimimo-pro">Xiaomi MiMo V2.5 Pro</option>
+                <option value="xiaomimimo-sgp">Xiaomi MiMo Token Plan SGP</option>
+                <option value="xiaomimimo-cn">Xiaomi MiMo Token Plan CN</option>
+                <option value="claude-sonnet">Claude Sonnet 4</option>
+                <option value="claude-haiku">Claude Haiku</option>
+                <option value="openai-compatible">OpenAI Compatible</option>
+                <option value="custom">自定义</option>
+              </select>
+            </div>
+            <div class="form-field"><label>模型名</label><input id="m_model" placeholder="mimo-v2.5"></div>
+            <div class="form-field span-all"><label>接口地址 Endpoint</label><input id="m_endpoint" placeholder="例如：https://api.xiaomimimo.com/anthropic/v1/messages"></div>
+            <div class="form-field"><label>Max Tokens</label><input id="m_maxTokens" type="number" placeholder="8000"></div>
+            <div class="form-field"><label>超时毫秒</label><input id="m_timeoutMs" type="number" placeholder="180000"></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-green" onclick="saveModelSettings(this)">保存模型设置</button>
+            <button class="btn" onclick="resetModelSettings()">恢复默认</button>
+            <span class="hint">API Key 仍在顶部输入框填写。模型设置会保存在当前浏览器。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <span class="drawer-kw" id="drawerKw">—</span>
+    <button class="btn btn-sm" onclick="copyHtml()">复制 HTML</button>
+    <button class="btn btn-sm" onclick="dlHtml()">↓ 下载</button>
+    <button class="btn btn-icon" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="tabs">
+    <div class="tab on" onclick="switchDrawerTab('outline')">大纲预览</div>
+    <div class="tab" onclick="switchDrawerTab('preview')">文章预览</div>
+    <div class="tab" onclick="switchDrawerTab('source')">HTML 源码</div>
+    <div class="tab" onclick="switchDrawerTab('qa')">QA 检查</div>
+    <div class="tab" onclick="switchDrawerTab('publish')">发布包</div>
+    <div class="tab" onclick="switchDrawerTab('data')">数据包</div>
+  </div>
+  <div class="tab-pane on" id="tp-outline"><div id="drawerOutline"></div></div>
+  <div class="tab-pane" id="tp-preview"><div class="article-render" id="drawerPreview"></div></div>
+  <div class="tab-pane" id="tp-source"><div class="src-box" id="drawerSource"></div></div>
+  <div class="tab-pane" id="tp-qa"><div id="drawerQa"></div></div>
+  <div class="tab-pane" id="tp-publish"><div id="publishPack"></div></div>
+  <div class="tab-pane" id="tp-data"><div class="code-box" id="drawerData"></div></div>
+</div>
+
+<script>
+const TYPE_ZH = {
+  'buying-guide': '购买指南',
+  'price-guide': '价格指南',
+  comparison: '对比评测',
+  faq: 'FAQ 问答',
+  'how-to': '操作教程',
+  pillar: '支柱文章',
+};
+const STATUS_ZH = { queued: '待生成', outlined: '大纲完成', running: '生成中', done: '已完成', failed: '失败' };
+const DEFAULT_ARTICLE_TYPES = {
+  'price-guide': { wordRange: [800, 1200], schemaType: 'Article', openingTemplates: ['Answer the price question immediately, then explain context and tradeoffs.'] },
+  'buying-guide': { wordRange: [1000, 1600], schemaType: 'Article', openingTemplates: ['Start with the buying decision and the most important selection criteria.'] },
+  comparison: { wordRange: [1200, 1800], schemaType: 'Article', openingTemplates: ['Compare the options by use case, cost, risk, and next step.'] },
+  faq: { wordRange: [600, 900], schemaType: 'FAQPage', openingTemplates: ['Give a direct answer, then cover the most common follow-up questions.'] },
+  'how-to': { wordRange: [1000, 1500], schemaType: 'HowTo', openingTemplates: ['Frame the task, prerequisites, steps, and common mistakes.'] },
+  pillar: { wordRange: [2200, 3500], schemaType: 'Article', openingTemplates: ['Open with the category problem, map the topic, and guide readers by section.'] },
+};
+const DEFAULT_PROMPT_SECTIONS = {
+  authorDisclaimer: 'Written by {authorName}, {authorTitle} at {brandName}. Reviewed for clarity and practical usefulness in {reviewDate}.',
+  observationalClaim: 'Use verified facts from the knowledge base. When making an editorial judgment, phrase it as practical guidance rather than an unsupported guarantee.',
+  internalLinkRule: 'Use only the provided internal links. Insert links naturally where they help the reader.',
+  ctaStyle: 'End with a practical next step that matches the site conversion goal.',
+};
+const DEFAULT_QA_RULES = {
+  hardFail: [
+    { id: 'empty_article', check: 'article_tag_missing', message: 'Missing <article> root element' },
+    { id: 'too_short', check: 'too_short', message: 'Article is shorter than the configured word range' },
+    { id: 'forbidden_word', check: 'forbidden_word_found', message: 'Contains forbidden wording from site.json' },
+    { id: 'editor_markers', check: 'editor_markers_found', message: 'Contains TODO/editor/placeholder markers' },
+  ],
+  warnings: [
+    { id: 'cta_missing', check: 'cta_missing', message: 'No clear CTA detected' },
+    { id: 'internal_links_zero', check: 'internal_links_zero', message: 'No internal links detected' },
+    { id: 'author_block_missing', check: 'author_block_missing', message: 'Author block missing' },
+  ],
+  scoreWeights: { seoStructure: 20, brandFit: 20, helpfulness: 20, readability: 20, publishReadiness: 20 },
+};
+const QA_CHECKS = ['article_tag_missing','too_short','forbidden_word_found','editor_markers_found','cta_missing','internal_links_zero','author_block_missing','h1_missing','meta_too_long'];
+const WEIGHT_LABELS = { seoStructure:'SEO结构', brandFit:'品牌匹配', helpfulness:'内容有用性', readability:'可读性', publishReadiness:'发布就绪度' };
+const MODEL_PRESETS = {
+  xiaomimimo: { model: 'mimo-v2.5', endpoint: 'https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages', maxTokens: '8192', timeoutMs: '180000' },
+  'xiaomimimo-pro': { model: 'mimo-v2.5-pro', endpoint: 'https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages', maxTokens: '8192', timeoutMs: '240000' },
+  'xiaomimimo-sgp': { model: 'mimo-v2.5-pro', endpoint: 'https://token-plan-sgp.xiaomimimo.com/anthropic/v1/messages', maxTokens: '8192', timeoutMs: '240000' },
+  'xiaomimimo-cn': { model: 'mimo-v2.5-pro', endpoint: 'https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages', maxTokens: '8192', timeoutMs: '180000' },
+  'claude-sonnet': { model: 'claude-sonnet-4-20250514', endpoint: 'https://api.anthropic.com/v1/messages', maxTokens: '8000', timeoutMs: '180000' },
+  'claude-haiku': { model: 'claude-3-5-haiku-latest', endpoint: 'https://api.anthropic.com/v1/messages', maxTokens: '6000', timeoutMs: '120000' },
+  'openai-compatible': { model: 'gpt-4.1', endpoint: '', maxTokens: '8000', timeoutMs: '180000' },
+  custom: { model: '', endpoint: '', maxTokens: '8000', timeoutMs: '180000' },
+};
+
+let currentSite = '';
+let keywords = [];
+let selected = new Set();
+let configs = { site:{}, author:{}, knowledge:{}, links:{} };
+let templates = { 'article-types':{}, 'prompt-sections':{}, 'qa-rules':{} };
+let drawerSlug = '';
+let drawerHtml = '';
+
+init();
+
+async function init() {
+  document.getElementById('f_articletype').innerHTML = typeOptions();
+  loadModelSettings();
+  await loadSites();
+  await loadTemplates();
+}
+
+async function loadSites(preferSite) {
+  const res = await api('GET', '/sites');
+  if (!res) return;
+  const sel = document.getElementById('siteSel');
+  sel.innerHTML = res.sites.length
+    ? res.sites.map(s => `<option value="${esc(s.siteId)}">${esc(s.displayName)}</option>`).join('')
+    : '<option value="">未找到站点</option>';
+  if (res.sites.length) {
+    const next = preferSite || currentSite || res.sites[0].siteId;
+    sel.value = next;
+    await switchSite(next);
+  }
+}
+
+async function switchSite(siteId) {
+  currentSite = siteId;
+  selected.clear();
+  closeDrawer();
+  document.getElementById('selAll').checked = false;
+  await Promise.all([reloadKeywords(), loadConfigs()]);
+}
+
+async function reloadKeywords() {
+  if (!currentSite) return;
+  const res = await api('GET', `/sites/${currentSite}/keywords`);
+  if (!res) return;
+  keywords = res.keywords || [];
+  renderTable();
+  renderStats();
+  document.getElementById('tableTitle').textContent = currentSite + ' — 关键词规划表';
+}
+
+async function loadConfigs() {
+  if (!currentSite) return;
+  for (const key of ['site','author','knowledge','links']) {
+    const res = await api('GET', `/sites/${currentSite}/config/${key}`);
+    if (res) configs[key] = res.content || {};
+  }
+  document.getElementById('configSiteId').textContent = currentSite;
+  renderConfig();
+}
+
+async function loadTemplates() {
+  for (const key of ['article-types','prompt-sections','qa-rules']) {
+    const res = await api('GET', `/templates/${key}`);
+    if (res) templates[key] = res.content || {};
+  }
+  renderLogic();
+}
+
+function switchPanel(name) {
+  document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('on', btn.dataset.panel === name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.getElementById('panel-' + name)?.classList.add('on');
+}
+
+function switchSubtab(group, name) {
+  document.querySelectorAll(`#${group}Tabs .subtab`).forEach(btn => btn.classList.remove('on'));
+  event.currentTarget.classList.add('on');
+  document.querySelectorAll(`[id^="${group}-"].subpane`).forEach(p => p.classList.remove('on'));
+  document.getElementById(`${group}-${name}`)?.classList.add('on');
+}
+
+function renderTable() {
+  document.getElementById('kwBody').innerHTML = keywords.map(row => {
+    const isSel = selected.has(row.urlslug);
+    const status = row.status || 'queued';
+    const hasDone = status === 'done';
+    return `<tr data-slug="${esc(row.urlslug)}" class="${isSel ? 'selected' : ''}">
+      <td><div class="cell"><input type="checkbox" ${isSel ? 'checked' : ''} onchange="toggleSel('${escAttr(row.urlslug)}',this.checked)"></div></td>
+      <td><input class="cell-edit cell-kw" value="${escAttr(row.keyword)}" onblur="patch('${escAttr(row.urlslug)}','keyword',this.value)" onfocus="this.select()"></td>
+      <td><input class="cell-edit" style="font-family:monospace;font-size:11px;color:var(--text3)" value="${escAttr(row.urlslug)}" onblur="patch('${escAttr(row.urlslug)}','urlslug',this.value)"></td>
+      <td><select class="cell-edit" onchange="patch('${escAttr(row.urlslug)}','priority',this.value)">${['P1','P2','P3'].map(p => `<option ${row.priority===p?'selected':''}>${p}</option>`).join('')}</select></td>
+      <td><select class="cell-edit" onchange="patch('${escAttr(row.urlslug)}','articletype',this.value)">${typeOptions(row.articletype)}</select></td>
+      <td><div class="cell" style="color:var(--text3)">${esc(row.targetwordcount || '—')}</div></td>
+      <td><div class="cell"><span class="badge badge-${status}">${STATUS_ZH[status] || status}</span>${row.error ? `<span class="err-tip" title="${escAttr(row.error)}">${esc(row.error)}</span>` : ''}${row.wordCount ? `<span style="font-size:10px;color:var(--text3);display:block">${row.wordCount} 字</span>` : ''}</div></td>
+      <td><div class="cell">${row.qaScore != null ? `<span style="font-weight:500">${row.qaScore}</span><span style="color:var(--text3)"> 分</span>` : '—'}</div></td>
+      <td class="col-actions"><div class="row-acts">
+        <button class="btn btn-sm btn-icon" title="预览大纲/文章/QA/发布包" onclick="openDrawer('${escAttr(row.urlslug)}','${escAttr(row.keyword)}')">📄</button>
+        <button class="btn btn-sm btn-icon" title="生成大纲" onclick="generateOutlineOne('${escAttr(row.urlslug)}',this)">纲</button>
+        <button class="btn btn-sm btn-blue btn-icon" title="按大纲生成文章" onclick="generateOne('${escAttr(row.urlslug)}',this)">▶</button>
+        <button class="btn btn-sm btn-icon" title="删除" onclick="delRow('${escAttr(row.urlslug)}')" style="color:var(--red)">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderStats() {
+  document.getElementById('sTotal').textContent = keywords.length;
+  document.getElementById('sDone').textContent = keywords.filter(k => k.status === 'done').length;
+  document.getElementById('sQueued').textContent = keywords.filter(k => !k.status || k.status === 'queued' || k.status === 'outlined').length;
+  document.getElementById('sFailed').textContent = keywords.filter(k => k.status === 'failed').length;
+}
+
+function typeOptions(selectedValue = 'buying-guide') {
+  return Object.entries(TYPE_ZH).map(([value,label]) => `<option value="${value}" ${value===selectedValue?'selected':''}>${label}</option>`).join('');
+}
+
+async function patch(slug, field, value) {
+  const res = await api('PUT', `/sites/${currentSite}/keywords/${slug}`, { [field]: value });
+  if (!res) return;
+  const row = keywords.find(k => k.urlslug === slug);
+  if (row) row[field] = value;
+  log(`已更新 ${slug} · ${field}`, 'ok');
+}
+
+async function delRow(slug) {
+  if (!confirm('删除这条关键词记录？')) return;
+  const res = await api('DELETE', `/sites/${currentSite}/keywords/${slug}`);
+  if (!res) return;
+  selected.delete(slug);
+  await reloadKeywords();
+  log(`已删除：${slug}`, 'ok');
+}
+
+function toggleSel(slug, checked) {
+  if (checked) selected.add(slug); else selected.delete(slug);
+  document.querySelector(`tr[data-slug="${cssEsc(slug)}"]`)?.classList.toggle('selected', checked);
+}
+
+function toggleSelAll(checked) {
+  keywords.forEach(k => toggleSel(k.urlslug, checked));
+}
+
+function toggleAddRow(force) {
+  const panel = document.getElementById('addRowPanel');
+  panel.classList.toggle('open', force === undefined ? !panel.classList.contains('open') : force);
+}
+
+async function submitAdd() {
+  const g = id => document.getElementById(id).value.trim();
+  const keyword = g('f_keyword');
+  if (!keyword) return log('关键词不能为空', 'err');
+  const res = await api('POST', `/sites/${currentSite}/keywords`, {
+    keyword,
+    urlslug: g('f_urlslug'),
+    priority: g('f_priority'),
+    articletype: g('f_articletype'),
+    targetwordcount: g('f_targetwordcount'),
+    intent: g('f_intent'),
+    secondarykeywords: g('f_secondarykeywords'),
+    variants: g('f_variants'),
+    internallinkingurls: g('f_internallinkingurls'),
+    direction: g('f_direction'),
+  });
+  if (!res) return;
+  ['f_keyword','f_urlslug','f_targetwordcount','f_intent','f_secondarykeywords','f_variants','f_internallinkingurls','f_direction'].forEach(id => document.getElementById(id).value = '');
+  toggleAddRow(false);
+  await reloadKeywords();
+  log(`已添加：${keyword}`, 'ok');
+}
+
+async function generateOne(slug, btn) {
+  const apiConfig = getApiConfig();
+  btn.disabled = true; btn.textContent = '…';
+  updateStatus(slug, 'running');
+  log(`开始按大纲生成文章：${slug}`, 'run');
+  try {
+    await streamPost(`/sites/${currentSite}/generate-article/${slug}`, apiConfig, ev => {
+      const d = parseEvent(ev);
+      if (ev.type === 'task-done') {
+        updateStatus(slug, d.status, d);
+        log(d.status === 'done' ? `完成：${slug} · ${d.wordCount || 0} 字 · QA ${d.qaScore ?? '—'} 分` : `失败：${slug} — ${d.error}`, d.status === 'done' ? 'ok' : 'err');
+      }
+      if (ev.type === 'error') log(d.message || '生成失败', 'err');
+    });
+  } catch (err) {
+    updateStatus(slug, 'failed', { error: err.message });
+    log(`出错：${err.message}`, 'err');
+  }
+  btn.disabled = false; btn.textContent = '▶';
+  await reloadKeywords();
+}
+
+async function generateOutlineOne(slug, btn) {
+  const apiConfig = getApiConfig();
+  btn.disabled = true; btn.textContent = '…';
+  updateStatus(slug, 'running');
+  log(`开始生成大纲：${slug}`, 'run');
+  try {
+    await streamPost(`/sites/${currentSite}/outline/${slug}`, apiConfig, ev => {
+      const d = parseEvent(ev);
+      if (ev.type === 'outline-done') {
+        updateStatus(slug, 'outlined', d);
+        log(`大纲完成：${slug}`, 'ok');
+      }
+      if (ev.type === 'error') log(d.message || '大纲生成失败', 'err');
+    });
+  } catch (err) {
+    updateStatus(slug, 'failed', { error: err.message });
+    log(`大纲出错：${err.message}`, 'err');
+  }
+  btn.disabled = false; btn.textContent = '纲';
+  await reloadKeywords();
+}
+
+function runAll() { startBatch({}); }
+function retryFailed() { startBatch({ onlyFailed: true }); }
+
+async function startBatch(opts) {
+  const apiConfig = getApiConfig();
+  const concurrency = parseInt(document.getElementById('conc').value, 10);
+  const pw = document.getElementById('progWrap');
+  const pf = document.getElementById('progFill');
+  const pl = document.getElementById('progLbl');
+  pw.style.display = 'block'; pf.style.width = '0%'; pl.textContent = '准备中…';
+  const rows = keywords.filter(k => opts.onlyFailed ? k.status === 'failed' : k.status !== 'done');
+  let done = 0, total = rows.length;
+  pl.textContent = `0 / ${total}`;
+  try {
+    await runPool(rows, concurrency, async row => {
+      if (row.status !== 'outlined') {
+        log(`批量大纲：${row.urlslug}`, 'run');
+        await streamPost(`/sites/${currentSite}/outline/${row.urlslug}`, apiConfig, ev => {
+          const d = parseEvent(ev);
+          if (ev.type === 'outline-done') log(`大纲完成：${row.urlslug}`, 'ok');
+          if (ev.type === 'error') throw new Error(d.message || '大纲生成失败');
+        });
+      }
+      log(`批量文章：${row.urlslug}`, 'run');
+      await streamPost(`/sites/${currentSite}/generate-article/${row.urlslug}`, apiConfig, ev => {
+        const d = parseEvent(ev);
+        if (ev.type === 'task-done') {
+          log(d.status === 'done' ? `完成：${d.slug} · ${d.wordCount || 0} 字 · QA ${d.qaScore ?? '—'} 分` : `失败：${d.slug} — ${d.error}`, d.status === 'done' ? 'ok' : 'err');
+        }
+        if (ev.type === 'error') throw new Error(d.message || '文章生成失败');
+      });
+      done++;
+      pf.style.width = total ? Math.round(done / total * 100) + '%' : '0%';
+      pl.textContent = `${done} / ${total}`;
+    });
+  } catch (err) {
+    log(`批量运行出错：${err.message}`, 'err');
+  } finally {
+    pw.style.display = 'none';
+    await reloadKeywords();
+  }
+}
+
+async function runPool(items, concurrency, worker) {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length || 1) }, async () => {
+    while (next < items.length) {
+      const item = items[next++];
+      try { await worker(item); }
+      catch (err) { log(`${item.urlslug} 失败：${err.message}`, 'err'); }
+    }
+  });
+  await Promise.all(workers);
+}
+
+async function resetAll() {
+  if (!confirm('重置全部关键词状态为「待生成」？')) return;
+  const res = await api('POST', `/sites/${currentSite}/reset`, { slugs: null });
+  if (res) { await reloadKeywords(); log('已重置全部关键词', 'ok'); }
+}
+
+async function resetSelected() {
+  if (!selected.size) return log('请先勾选要重置的行', 'err');
+  const res = await api('POST', `/sites/${currentSite}/reset`, { slugs: [...selected] });
+  if (res) { selected.clear(); await reloadKeywords(); log('已重置所选关键词', 'ok'); }
+}
+
+function importCsv() { document.getElementById('csvFile').click(); }
+async function onCsvFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const res = await api('POST', `/sites/${currentSite}/keywords/import`, text, 'text/plain');
+  input.value = '';
+  if (res) { log(`已导入 ${res.imported} 条关键词`, 'ok'); await reloadKeywords(); }
+}
+function exportCsv() { if (currentSite) window.location.href = `/api/sites/${currentSite}/keywords/export`; }
+function dlZip() { if (currentSite) window.location.href = `/api/sites/${currentSite}/export`; }
+function dlMeta() { if (currentSite) window.location.href = `/api/sites/${currentSite}/meta-table`; }
+
+async function openDrawer(slug, keyword) {
+  drawerSlug = slug;
+  drawerHtml = '';
+  document.getElementById('drawerKw').textContent = keyword;
+  document.getElementById('drawerOutline').innerHTML = '<div class="hint">加载大纲…</div>';
+  document.getElementById('drawerPreview').innerHTML = '<div class="hint">加载文章…</div>';
+  document.getElementById('drawerSource').textContent = '';
+  document.getElementById('drawerQa').innerHTML = '<div class="hint">加载 QA…</div>';
+  document.getElementById('publishPack').innerHTML = '<div class="hint">加载发布包…</div>';
+  document.getElementById('drawerData').textContent = '';
+  document.getElementById('drawer').classList.add('open');
+  switchDrawerTab('outline');
+  await Promise.all([
+    loadOutline(slug),
+    loadArticle(slug),
+    loadQa(slug),
+    loadPublishPack(slug),
+    loadDataPack(slug),
+  ]);
+}
+
+async function loadOutline(slug) {
+  const el = document.getElementById('drawerOutline');
+  const res = await fetch(`/api/sites/${currentSite}/outlines/${slug}`);
+  if (!res.ok) { el.innerHTML = '<div class="hint">还没有大纲。请先点击表格里的「纲」生成大纲。</div>'; return; }
+  const data = await res.json();
+  el.innerHTML = renderOutline(data.outline);
+}
+
+async function loadArticle(slug) {
+  const articleRes = await fetch(`/api/sites/${currentSite}/articles/${slug}`);
+  if (!articleRes.ok) {
+    document.getElementById('drawerPreview').innerHTML = '<div class="hint">还没有文章。请先生成大纲，再点击 ▶ 生成文章。</div>';
+    document.getElementById('drawerSource').textContent = '';
+    return;
+  }
+  drawerHtml = await articleRes.text();
+  document.getElementById('drawerPreview').innerHTML = drawerHtml;
+  document.getElementById('drawerSource').textContent = drawerHtml;
+}
+
+async function loadQa(slug) {
+  const el = document.getElementById('drawerQa');
+  const res = await fetch(`/api/sites/${currentSite}/qa/${slug}`);
+  if (!res.ok) { el.innerHTML = '<div class="hint">还没有 QA 报告。文章生成后会自动出现。</div>'; return; }
+  const data = await res.json();
+  el.innerHTML = renderQa(data.qa);
+}
+
+async function loadPublishPack(slug) {
+  const el = document.getElementById('publishPack');
+  const packRes = await fetch(`/api/sites/${currentSite}/publish-pack/${slug}`);
+  if (!packRes.ok) { el.innerHTML = '<div class="hint">还没有发布包。文章生成并通过元数据写入后会自动出现。</div>'; return; }
+  const res = await packRes.json();
+  const seoTitles = res.seoTitles && res.seoTitles.length ? res.seoTitles : ['暂无 SEO 标题'];
+  const meta = res.metaDescription || '';
+  el.innerHTML = `
+    <div class="pack-section">
+      <div class="pack-title">SEO标题三选</div>
+      <div class="seo-title-list">${seoTitles.map(t => `<button class="btn seo-title-btn" onclick="copyText('${escAttr(t)}')">${esc(t)}</button>`).join('')}</div>
+    </div>
+    <div class="pack-section">
+      <div class="pack-title">Meta Description <span class="${meta.length > 155 ? 'err-tip' : 'hint'}">${meta.length}/155</span></div>
+      <textarea class="meta-box" readonly>${esc(meta)}</textarea>
+    </div>
+    <div class="pack-section">
+      <div class="pack-title">图片ALT清单</div>
+      ${(res.altTexts || []).length ? res.altTexts.map(a => `<div class="check-row"><span class="badge badge-queued">#${a.position}</span><span>${esc(a.suggestion)}</span></div>`).join('') : '<div class="hint">暂无 ALT 建议</div>'}
+    </div>
+    <div class="pack-section">
+      <div class="pack-title">Schema JSON-LD <button class="btn btn-sm" onclick="copyText(document.getElementById('schemaCode').textContent)">复制</button></div>
+      <div class="code-box" id="schemaCode">${esc(JSON.stringify(res.schema || {}, null, 2))}</div>
+    </div>
+    <div class="pack-section">
+      <div class="pack-title">发布前检查清单</div>
+      ${(res.publishChecklist || []).map(c => `<div class="check-row ${c.done ? 'done' : ''}"><span class="check-mark">${c.done ? '✓' : ''}</span><span>${esc(c.item)}</span></div>`).join('')}
+    </div>`;
+}
+
+async function loadDataPack(slug) {
+  const el = document.getElementById('drawerData');
+  const res = await fetch(`/api/sites/${currentSite}/data-pack/${slug}`);
+  if (!res.ok) { el.textContent = '数据包暂不可用'; return; }
+  el.textContent = JSON.stringify(await res.json(), null, 2);
+}
+
+function renderOutline(outline = {}) {
+  if (!Array.isArray(outline.sections) || !outline.sections.length) {
+    outline = normalizeOutlineForView(outline);
+  }
+  const sections = outline.sections || [];
+  return `<div class="pack-section">
+    <div class="pack-title">文章大纲</div>
+    <h2 style="font-size:18px;margin-bottom:6px">${esc(outline.workingTitle || outline.keyword || '未命名大纲')}</h2>
+    <div class="hint">搜索意图：${esc(outline.searchIntent || '—')} · 目标字数：${esc(outline.targetWordCount || '—')}</div>
+    ${outline.readerPromise ? `<p style="margin-top:8px;color:var(--text2)">${esc(outline.readerPromise)}</p>` : ''}
+  </div>
+  <div class="outline-list">${sections.map(sec => `<div class="outline-item">
+    <h3>${esc(sec.level || 'H2')} · ${esc(sec.heading || '')}</h3>
+    ${sec.purpose ? `<p>${esc(sec.purpose)}</p>` : ''}
+    ${(sec.keyPoints || []).length ? `<ul>${sec.keyPoints.map(p => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
+    ${(sec.recommendedLinks || []).length ? `<div class="hint">推荐内链：${sec.recommendedLinks.map(l => `${esc(l.anchor || '')} ${esc(l.url || '')}`).join('；')}</div>` : ''}
+  </div>`).join('')}</div>
+  ${(outline.faq || []).length ? `<div class="pack-section"><div class="pack-title">FAQ规划</div>${outline.faq.map(f => `<div class="check-row"><span>Q: ${esc(f.question || '')}</span></div>`).join('')}</div>` : ''}
+  ${outline.cta ? `<div class="pack-section"><div class="pack-title">CTA</div><div>${esc(outline.cta)}</div></div>` : ''}
+  ${(outline.qaRisks || []).length ? `<div class="pack-section"><div class="pack-title">QA风险</div>${outline.qaRisks.map(r => `<div class="qa-fail-item warn">⚠ ${esc(r)}</div>`).join('')}</div>` : ''}`;
+}
+
+function normalizeOutlineForView(outline = {}) {
+  const title = outline.workingTitle || outline.schema?.headline || outline.seoTitles?.[0] || '未命名大纲';
+  return {
+    workingTitle: title,
+    keyword: outline.keyword || '',
+    searchIntent: outline.searchIntent || '',
+    targetWordCount: outline.targetWordCount || outline.wordCount || '',
+    readerPromise: outline.readerPromise || outline.metaDescription || '',
+    sections: [
+      {
+        level: 'H2',
+        heading: 'Direct answer and reader decision',
+        purpose: 'Frame the article around the keyword and search intent.',
+        keyPoints: ['Use the primary keyword in the H1 and opening.', 'State who this guide is for and what decision it helps with.'],
+      },
+      {
+        level: 'H2',
+        heading: 'Difficulty, time, and kit expectations',
+        purpose: 'Set honest Nookcraft expectations before recommending products.',
+        keyPoints: ['Mention English photo instructions.', 'Disclose realistic build time and difficulty.', 'Avoid banned vague praise.'],
+      },
+      {
+        level: 'H2',
+        heading: 'Selection criteria and product fit',
+        purpose: 'Explain how to choose the right kit or scene type.',
+        keyPoints: ['Compare skill level, scene style, display space, and gift fit.', 'Use internal links naturally.'],
+      },
+      {
+        level: 'H2',
+        heading: 'FAQ and next step',
+        purpose: 'Resolve final objections and guide toward the relevant collection or product.',
+        keyPoints: ['Answer common buyer concerns.', 'End with a practical CTA.'],
+      },
+    ],
+    qaRisks: outline.qaRisks || [],
+  };
+}
+
+function renderQa(qa = {}) {
+  const scores = qa.scores || {};
+  const scoreRows = Object.entries(WEIGHT_LABELS).map(([key,label]) => {
+    const pct = Math.round((scores[key] || 0) * 100);
+    return `<div class="qa-item"><span class="qa-label">${label}</span><div class="qa-bar-wrap"><div class="qa-bar-fill" style="width:${pct}%"></div></div><span class="qa-val">${pct}</span></div>`;
+  }).join('');
+  const hard = (qa.hardFails || []).map(f => `<div class="qa-fail-item hard">✕ ${esc(f.message || f.id || f)}</div>`).join('');
+  const warns = (qa.warnings || []).map(w => `<div class="qa-fail-item warn">⚠ ${esc(w.message || w.id || w)}</div>`).join('');
+  return `<div class="pack-section">
+    <div class="pack-title">综合质检</div>
+    <span class="qa-score-big">${qa.score ?? '—'}</span><span class="hint"> / 100 · ${qa.pass ? '通过' : '未通过'} · ${qa.wordCount || 0} words · 内链 ${qa.internalLinkCount || 0}</span>
+  </div>
+  <div class="qa-wrap">${scoreRows}</div>
+  <div class="qa-fail-list">${hard || ''}${warns || ''}</div>`;
+}
+
+function closeDrawer() { document.getElementById('drawer')?.classList.remove('open'); }
+function switchDrawerTab(name) {
+  const names = ['outline','preview','source','qa','publish','data'];
+  document.querySelectorAll('.drawer .tab').forEach((t,i) => t.classList.toggle('on', names[i] === name));
+  document.querySelectorAll('.drawer .tab-pane').forEach(p => p.classList.remove('on'));
+  document.getElementById('tp-' + name)?.classList.add('on');
+}
+async function copyHtml() { await copyText(drawerHtml); }
+function dlHtml() { if (drawerSlug) window.location.href = `/api/sites/${currentSite}/articles/${drawerSlug}`; }
+
+function renderConfig() {
+  renderSiteConfig();
+  renderAuthorConfig();
+  renderKnowledgeConfig();
+  renderLinksConfig();
+}
+
+function renderSiteConfig() {
+  const s = configs.site || {};
+  const style = s.writingStyle || {};
+  document.getElementById('config-site').innerHTML = `<div class="config-card"><div class="form-grid">
+    ${field('c_siteId','网站ID',s.siteId || currentSite,'readonly')}
+    ${field('c_siteName','网站名称',s.siteName)}
+    ${field('c_domain','域名',s.domain)}
+    ${field('c_language','语言',s.language || 'en')}
+    ${textarea('c_positioning','网站定位',s.positioning,'span-all')}
+    ${textarea('c_targetAudience','目标受众',toLines(s.targetAudience),'span-all')}
+    ${field('c_brandRole','品牌角色',s.brandRole)}
+    ${field('c_conversionGoal','转化目标',s.conversionGoal)}
+    ${field('c_tone','写作语气',style.tone || '')}
+    ${textarea('c_avoidStyle','禁止规避的写作风格',toLines(style.avoidStyle),'span-all')}
+    ${textarea('c_mustSay','必须表达',toLines(s.mustSay),'span-all')}
+    ${textarea('c_mustNotSay','禁止表达',toLines(s.mustNotSay),'span-all')}
+  </div><button class="btn btn-green btn-sm" onclick="saveSiteConfig(this)">保存品牌设置</button></div>`;
+}
+
+function renderAuthorConfig() {
+  const a = configs.author || {};
+  document.getElementById('config-author').innerHTML = `<div class="config-card"><div class="form-grid">
+    ${field('c_authorName','作者姓名',a.name)}
+    ${field('c_authorTitle','职位/身份',a.title)}
+    ${textarea('c_authorBg','背景介绍',a.background,'span-all')}
+    ${textarea('c_authorStyle','写作风格说明',a.writingStyleNotes,'span-all')}
+    ${textarea('c_storyBank','故事素材库',toLines(a.storyBank),'span-all')}
+  </div><button class="btn btn-green btn-sm" onclick="saveAuthorConfig(this)">保存作者档案</button></div>`;
+}
+
+function renderKnowledgeConfig() {
+  const k = configs.knowledge || {};
+  document.getElementById('config-knowledge').innerHTML = `
+    <details class="config-card" open><summary>术语表</summary><div style="margin-top:10px">${renderTermTable(k.terminology || [])}<button class="btn btn-sm" onclick="addTerm()">＋ 增加术语</button></div></details>
+    <details class="config-card" open><summary>权威事实</summary><div style="margin-top:10px" id="factsList">${renderListRows(k.authorityFacts || [], 'fact')}</div><button class="btn btn-sm" onclick="addListRow('fact')">＋ 增加事实</button></details>
+    <details class="config-card" open><summary>买家高频问题</summary><div style="margin-top:10px">${renderFaqTable(k.faq || [])}<button class="btn btn-sm" onclick="addFaq()">＋ 增加问答</button></div></details>
+    <button class="btn btn-green btn-sm" onclick="saveKnowledgeConfig(this)">保存品类知识</button>`;
+}
+
+function renderLinksConfig() {
+  const l = configs.links || {};
+  document.getElementById('config-links').innerHTML = `
+    ${renderLinkSection('专题页（最高优先级）','pillarPages',l.pillarPages || [])}
+    ${renderLinkSection('已发布博客','blogPosts',l.blogPosts || [])}
+    ${renderLinkSection('产品分类页','productPages',l.productPages || [])}
+    <button class="btn btn-green btn-sm" onclick="saveLinksConfig(this)">保存内链库</button>`;
+}
+
+function field(id, label, value = '', extra = '') {
+  return `<div class="form-field"><label>${label}</label><input id="${id}" value="${escAttr(value)}" ${extra}></div>`;
+}
+function textarea(id, label, value = '', cls = '') {
+  return `<div class="form-field ${cls}"><label>${label}</label><textarea id="${id}">${esc(value)}</textarea></div>`;
+}
+function toLines(value) {
+  return Array.isArray(value) ? value.join('\n') : (value || '');
+}
+function fromLines(value) {
+  return String(value || '').split(/\n|,/).map(s => s.trim()).filter(Boolean);
+}
+
+function collectSiteConfig() {
+  return {
+    ...configs.site,
+    siteId: val('c_siteId') || currentSite,
+    siteName: val('c_siteName'),
+    domain: val('c_domain'),
+    language: val('c_language') || 'en',
+    positioning: val('c_positioning'),
+    targetAudience: fromLines(val('c_targetAudience')),
+    brandRole: val('c_brandRole'),
+    conversionGoal: val('c_conversionGoal'),
+    mustSay: fromLines(val('c_mustSay')),
+    mustNotSay: fromLines(val('c_mustNotSay')),
+    writingStyle: { ...(configs.site.writingStyle || {}), tone: val('c_tone'), avoidStyle: fromLines(val('c_avoidStyle')) },
+  };
+}
+function collectAuthorConfig() {
+  return { ...configs.author, name: val('c_authorName'), title: val('c_authorTitle'), background: val('c_authorBg'), writingStyleNotes: val('c_authorStyle'), storyBank: fromLines(val('c_storyBank')) };
+}
+function collectKnowledgeConfig() {
+  return { ...configs.knowledge, terminology: readTable('termTbl', ['zh','en','definition']), authorityFacts: [...document.querySelectorAll('[data-list="fact"]')].map(i => i.value.trim()).filter(Boolean), faq: readTable('faqTbl', ['question','answer']) };
+}
+function collectLinksConfig() {
+  return { ...configs.links, pillarPages: readLinks('pillarPages'), blogPosts: readLinks('blogPosts'), productPages: readLinks('productPages') };
+}
+async function saveSiteConfig(btn) { configs.site = collectSiteConfig(); await saveConfig('site', configs.site, btn); }
+async function saveAuthorConfig(btn) { configs.author = collectAuthorConfig(); await saveConfig('author', configs.author, btn); }
+async function saveKnowledgeConfig(btn) { configs.knowledge = collectKnowledgeConfig(); await saveConfig('knowledge', configs.knowledge, btn); }
+async function saveLinksConfig(btn) { configs.links = collectLinksConfig(); await saveConfig('links', configs.links, btn); }
+async function saveAllConfigs(btn) {
+  configs.site = collectSiteConfig();
+  configs.author = collectAuthorConfig();
+  configs.knowledge = collectKnowledgeConfig();
+  configs.links = collectLinksConfig();
+  for (const key of ['site','author','knowledge','links']) {
+    const res = await api('POST', `/sites/${currentSite}/config/${key}`, { content: configs[key] });
+    if (!res) return;
+  }
+  savedButton(btn, '保存所有更改');
+  log('站点配置已全部保存', 'ok');
+}
+async function saveConfig(key, content, btn) {
+  const res = await api('POST', `/sites/${currentSite}/config/${key}`, { content });
+  if (res) { savedButton(btn, btn.textContent); log(`${key}.json 已保存`, 'ok'); }
+}
+
+function renderTermTable(rows) {
+  return `<table class="mini-table" id="termTbl"><thead><tr><th>中文术语</th><th>英文术语</th><th>释义</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => termRow(r)).join('')}</tbody></table>`;
+}
+function termRow(r = {}) {
+  return `<tr><td><input value="${escAttr(r.zh || r.cn || r.term || '')}"></td><td><input value="${escAttr(r.en || r.english || '')}"></td><td><input value="${escAttr(r.definition || r.desc || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+}
+function addTerm() { document.querySelector('#termTbl tbody').insertAdjacentHTML('beforeend', termRow()); }
+function renderFaqTable(rows) {
+  return `<table class="mini-table" id="faqTbl"><thead><tr><th>问题</th><th>回答</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => faqRow(r)).join('')}</tbody></table>`;
+}
+function faqRow(r = {}) {
+  return `<tr><td><input value="${escAttr(r.question || '')}"></td><td><input value="${escAttr(r.answer || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+}
+function addFaq() { document.querySelector('#faqTbl tbody').insertAdjacentHTML('beforeend', faqRow()); }
+function renderListRows(rows, type) {
+  return rows.map(v => `<div class="list-row"><input data-list="${type}" value="${escAttr(typeof v === 'string' ? v : JSON.stringify(v))}"><button class="btn btn-sm btn-icon" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+}
+function addListRow(type) {
+  document.getElementById(type + 'sList')?.insertAdjacentHTML('beforeend', `<div class="list-row"><input data-list="${type}" value=""><button class="btn btn-sm btn-icon" onclick="this.parentElement.remove()">✕</button></div>`);
+}
+function renderLinkSection(title, key, rows) {
+  return `<details class="config-card" open><summary>${title}</summary><div style="margin-top:10px"><table class="mini-table" id="${key}Tbl"><thead><tr><th>锚文本</th><th>URL</th><th>话题</th><th>关键词</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => linkRow(r)).join('')}</tbody></table><button class="btn btn-sm" onclick="addLink('${key}')">＋ 增加链接</button></div></details>`;
+}
+function linkRow(r = {}) {
+  return `<tr><td><input value="${escAttr(r.anchor || r.title || '')}"></td><td><input value="${escAttr(r.url || '')}"></td><td><input value="${escAttr(r.topic || '')}"></td><td><input value="${escAttr(Array.isArray(r.keywords) ? r.keywords.join(', ') : (r.keywords || ''))}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+}
+function addLink(key) { document.querySelector(`#${key}Tbl tbody`).insertAdjacentHTML('beforeend', linkRow()); }
+function readTable(id, cols) {
+  return [...document.querySelectorAll(`#${id} tbody tr`)].map(tr => {
+    const inputs = [...tr.querySelectorAll('input')];
+    const obj = {};
+    cols.forEach((col, i) => obj[col] = inputs[i]?.value.trim() || '');
+    return obj;
+  }).filter(obj => Object.values(obj).some(Boolean));
+}
+function readLinks(key) {
+  return [...document.querySelectorAll(`#${key}Tbl tbody tr`)].map(tr => {
+    const i = [...tr.querySelectorAll('input')];
+    return { anchor: i[0].value.trim(), url: i[1].value.trim(), topic: i[2].value.trim(), keywords: fromLines(i[3].value) };
+  }).filter(row => row.url || row.anchor);
+}
+
+function renderLogic() {
+  renderArticleTypes();
+  renderPromptSections();
+  renderQaRules();
+}
+function renderArticleTypes() {
+  const data = templates['article-types'] || {};
+  document.getElementById('logic-article-types').innerHTML = `<div class="logic-grid">${Object.entries(data).map(([id,cfg]) => articleTypeCard(id,cfg)).join('')}</div><div class="form-actions" style="margin-top:10px"><button class="btn btn-green" onclick="saveArticleTypes(this)">保存文章类型设置</button></div>`;
+}
+function articleTypeCard(id, cfg = {}) {
+  const range = cfg.wordRange || [0,0];
+  return `<div class="logic-card" data-type="${escAttr(id)}">
+    <div class="card-head"><span class="card-title">${esc(id)}</span><button class="btn btn-sm" onclick="resetArticleType('${escAttr(id)}')">重置为默认</button></div>
+    <div class="form-grid">
+      <div class="form-field"><label>最小字数</label><input data-at="min" type="number" value="${range[0] || ''}"></div>
+      <div class="form-field"><label>最大字数</label><input data-at="max" type="number" value="${range[1] || ''}"></div>
+      <div class="form-field"><label>Schema类型</label><select data-at="schema">${['Article','HowTo','FAQPage'].map(v => `<option ${cfg.schemaType===v?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div class="form-field"><label>标题格式</label><input data-at="titleFormat" value="${escAttr(cfg.titleFormat || '')}"></div>
+      <div class="form-field span-all"><label>开头句模板（每行一条）</label><textarea data-at="opening">${esc(toLines(cfg.openingTemplates || []))}</textarea></div>
+    </div>
+  </div>`;
+}
+function resetArticleType(id) {
+  templates['article-types'][id] = structuredClone(DEFAULT_ARTICLE_TYPES[id] || {});
+  renderArticleTypes();
+}
+function collectArticleTypes() {
+  const out = {};
+  document.querySelectorAll('[data-type]').forEach(card => {
+    const id = card.dataset.type;
+    out[id] = {
+      wordRange: [Number(card.querySelector('[data-at="min"]').value || 0), Number(card.querySelector('[data-at="max"]').value || 0)],
+      schemaType: card.querySelector('[data-at="schema"]').value,
+      openingTemplates: fromLines(card.querySelector('[data-at="opening"]').value),
+    };
+    const titleFormat = card.querySelector('[data-at="titleFormat"]').value.trim();
+    if (titleFormat) out[id].titleFormat = titleFormat;
+  });
+  return out;
+}
+async function saveArticleTypes(btn) {
+  templates['article-types'] = collectArticleTypes();
+  await saveTemplate('article-types', btn, '保存文章类型设置');
+}
+
+function renderPromptSections() {
+  const labels = { authorDisclaimer:'作者声明格式', observationalClaim:'观察性结论写法', internalLinkRule:'内链规则说明', ctaStyle:'CTA风格要求' };
+  const data = templates['prompt-sections'] || {};
+  document.getElementById('logic-prompt-sections').innerHTML = `${Object.entries(labels).map(([key,label]) => `<div class="logic-card"><div class="card-head"><span class="card-title">${label}</span><span class="char-count" id="cnt_${key}">${(data[key] || '').length} 字</span></div><textarea data-prompt="${key}" oninput="document.getElementById('cnt_${key}').textContent=this.value.length+' 字'">${esc(data[key] || '')}</textarea></div>`).join('')}<div class="form-actions"><button class="btn btn-green" onclick="savePromptSections(this)">保存Prompt设置</button><button class="btn" onclick="restoreTemplate('prompt-sections')">恢复全部默认</button></div>`;
+}
+async function savePromptSections(btn) {
+  const out = {};
+  document.querySelectorAll('[data-prompt]').forEach(t => out[t.dataset.prompt] = t.value);
+  templates['prompt-sections'] = out;
+  await saveTemplate('prompt-sections', btn, '保存Prompt设置');
+}
+
+function renderQaRules() {
+  const q = templates['qa-rules'] || {};
+  document.getElementById('logic-qa-rules').innerHTML = `
+    <div class="config-card"><div class="card-head"><span class="card-title">硬性拦截（Hard Fail）</span><button class="btn btn-sm" onclick="addQaRow('hardFail')">＋ 增加规则</button></div>${renderQaTable('hardFail', q.hardFail || [])}</div>
+    <div class="config-card"><div class="card-head"><span class="card-title">警告（Warning）</span><button class="btn btn-sm" onclick="addQaRow('warnings')">＋ 增加规则</button></div>${renderQaTable('warnings', q.warnings || [])}</div>
+    <div class="config-card"><div class="card-title">评分权重设置</div><div id="weightBox">${renderWeights(q.scoreWeights || {})}</div><div class="weight-total" id="weightTotal"></div></div>
+    <div class="form-actions"><button class="btn btn-green" onclick="saveQaRules(this)">保存QA设置</button><button class="btn" onclick="restoreTemplate('qa-rules')">恢复默认</button></div>`;
+  updateWeightTotal();
+}
+function renderQaTable(type, rows) {
+  return `<table class="mini-table" id="${type}Tbl"><thead><tr><th>规则ID</th><th>检查项</th><th>错误说明</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => qaRow(r)).join('')}</tbody></table>`;
+}
+function qaRow(r = {}) {
+  return `<tr><td><input value="${escAttr(r.id || '')}"></td><td><select>${QA_CHECKS.map(v => `<option ${r.check===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input value="${escAttr(r.message || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+}
+function addQaRow(type) { document.querySelector(`#${type}Tbl tbody`).insertAdjacentHTML('beforeend', qaRow()); }
+function renderWeights(weights) {
+  return Object.entries(WEIGHT_LABELS).map(([key,label]) => `<div class="weight-row"><span>${label}</span><input type="range" min="0" max="100" value="${Number(weights[key] ?? 20)}" data-weight="${key}" oninput="lockWeights('${key}')"><span id="wv_${key}">${Number(weights[key] ?? 20)}</span></div>`).join('');
+}
+function lockWeights(activeKey) {
+  const sliders = [...document.querySelectorAll('[data-weight]')];
+  const active = sliders.find(s => s.dataset.weight === activeKey);
+  document.getElementById('wv_' + activeKey).textContent = active.value;
+  const others = sliders.filter(s => s.dataset.weight !== activeKey);
+  let otherTotal = others.reduce((sum, s) => sum + Number(s.value), 0);
+  const maxOther = 100 - Number(active.value);
+  if (otherTotal !== maxOther && others.length) {
+    const adjustable = others[others.length - 1];
+    const next = Math.max(0, Number(adjustable.value) + maxOther - otherTotal);
+    adjustable.value = next;
+    document.getElementById('wv_' + adjustable.dataset.weight).textContent = next;
+  }
+  updateWeightTotal();
+}
+function updateWeightTotal() {
+  const total = [...document.querySelectorAll('[data-weight]')].reduce((sum, s) => sum + Number(s.value), 0);
+  const el = document.getElementById('weightTotal');
+  if (el) el.textContent = `当前总分：${total} / 100`;
+}
+function collectQa(type) {
+  return [...document.querySelectorAll(`#${type}Tbl tbody tr`)].map(tr => {
+    const inputs = [...tr.querySelectorAll('input')];
+    const select = tr.querySelector('select');
+    return {
+      id: inputs[0]?.value.trim() || '',
+      check: select?.value || '',
+      message: inputs[1]?.value.trim() || '',
+    };
+  }).filter(row => row.id || row.check || row.message);
+}
+function collectWeights() {
+  const out = {};
+  document.querySelectorAll('[data-weight]').forEach(s => out[s.dataset.weight] = Number(s.value));
+  return out;
+}
+async function saveQaRules(btn) {
+  templates['qa-rules'] = { hardFail: collectQa('hardFail'), warnings: collectQa('warnings'), scoreWeights: collectWeights() };
+  await saveTemplate('qa-rules', btn, '保存QA设置');
+}
+async function saveTemplate(key, btn, original) {
+  const res = await api('POST', `/templates/${key}`, { content: templates[key] });
+  if (res) { savedButton(btn, original); log(`${key}.json 已保存`, 'ok'); }
+}
+async function restoreTemplate(key) {
+  const res = await api('DELETE', `/templates/${key}`);
+  if (!res) return;
+  templates[key] = structuredClone(key === 'article-types' ? DEFAULT_ARTICLE_TYPES : key === 'prompt-sections' ? DEFAULT_PROMPT_SECTIONS : DEFAULT_QA_RULES);
+  renderLogic();
+  log(`${key}.json 已恢复默认`, 'ok');
+}
+
+async function createSite(btn) {
+  const body = {
+    siteId: val('n_siteId'),
+    siteName: val('n_siteName'),
+    domain: val('n_domain'),
+    language: val('n_language') || 'en',
+    positioning: val('n_positioning'),
+    authorName: val('n_authorName'),
+    authorTitle: val('n_authorTitle'),
+    tone: val('n_tone'),
+    targetAudience: val('n_targetAudience'),
+    mustSay: val('n_mustSay'),
+    mustNotSay: val('n_mustNotSay'),
+  };
+  if (!body.siteId) return log('网站ID不能为空', 'err');
+  btn.disabled = true;
+  const res = await api('POST', '/sites/create', body);
+  btn.disabled = false;
+  if (!res) return;
+  showNotice(`站点 ${res.siteId} 已创建，请继续完善站点配置`);
+  await loadSites(res.siteId);
+  switchPanel('config');
+  log(`站点 ${res.siteId} 已创建`, 'ok');
+}
+
+function applyModelPreset(name) {
+  const preset = MODEL_PRESETS[name] || MODEL_PRESETS.custom;
+  document.getElementById('m_model').value = preset.model;
+  document.getElementById('m_endpoint').value = preset.endpoint;
+  document.getElementById('m_maxTokens').value = preset.maxTokens;
+  document.getElementById('m_timeoutMs').value = preset.timeoutMs;
+}
+
+function loadModelSettings() {
+  let saved = JSON.parse(localStorage.getItem('contentEngineModelSettings') || 'null');
+  if (
+    saved?.model === 'xiaomimimo2.5' ||
+    saved?.endpoint === 'https://api.xiaomimimo.com/anthropic' ||
+    saved?.endpoint === 'https://api.xiaomimimo.com/anthropic/v1/messages' ||
+    saved?.endpoint === 'https://token-plan-cn.xiaomimimo.com/anthropic' ||
+    (saved?.preset === 'xiaomimimo' && !saved?.endpoint)
+  ) {
+    saved = { preset: 'xiaomimimo-sgp', ...MODEL_PRESETS['xiaomimimo-sgp'] };
+    localStorage.setItem('contentEngineModelSettings', JSON.stringify(saved));
+  }
+  const cfg = saved || { preset: 'xiaomimimo-sgp', ...MODEL_PRESETS['xiaomimimo-sgp'] };
+  document.getElementById('m_preset').value = cfg.preset || 'xiaomimimo-sgp';
+  document.getElementById('m_model').value = cfg.model || 'mimo-v2.5';
+  document.getElementById('m_endpoint').value = cfg.endpoint || MODEL_PRESETS.xiaomimimo.endpoint;
+  document.getElementById('m_maxTokens').value = cfg.maxTokens || '8000';
+  document.getElementById('m_timeoutMs').value = cfg.timeoutMs || '180000';
+}
+
+function saveModelSettings(btn) {
+  const cfg = {
+    preset: val('m_preset') || 'custom',
+    model: val('m_model'),
+    endpoint: val('m_endpoint'),
+    maxTokens: val('m_maxTokens'),
+    timeoutMs: val('m_timeoutMs'),
+  };
+  localStorage.setItem('contentEngineModelSettings', JSON.stringify(cfg));
+  savedButton(btn, '保存模型设置');
+  log(`模型设置已保存：${cfg.model || '默认模型'}`, 'ok');
+}
+
+function resetModelSettings() {
+  localStorage.removeItem('contentEngineModelSettings');
+  document.getElementById('m_preset').value = 'xiaomimimo-sgp';
+  applyModelPreset('xiaomimimo-sgp');
+  log('模型设置已恢复为 Xiaomi MiMo Token Plan SGP', 'ok');
+}
+
+function getApiConfig() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const cfg = JSON.parse(localStorage.getItem('contentEngineModelSettings') || 'null') || {
+    model: val('m_model') || 'mimo-v2.5',
+    endpoint: val('m_endpoint'),
+    maxTokens: val('m_maxTokens'),
+    timeoutMs: val('m_timeoutMs'),
+  };
+  return {
+    apiKey,
+    model: cfg.model || val('m_model') || 'mimo-v2.5',
+    endpoint: cfg.endpoint || val('m_endpoint'),
+    maxTokens: cfg.maxTokens || val('m_maxTokens'),
+    timeoutMs: cfg.timeoutMs || val('m_timeoutMs'),
+  };
+}
+
+function showNotice(msg) {
+  for (const id of ['createNotice', 'configNotice']) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.className = 'notice ok';
+    el.textContent = msg;
+    setTimeout(() => { el.className = 'notice'; }, 3000);
+  }
+}
+
+function updateStatus(slug, status, extra = {}) {
+  const row = keywords.find(k => k.urlslug === slug);
+  if (row) Object.assign(row, { status, ...extra });
+  renderTable(); renderStats();
+}
+function log(msg, cls = '') {
+  const el = document.getElementById('log');
+  const d = document.createElement('div');
+  d.className = 'log-line ' + cls;
+  d.textContent = new Date().toLocaleTimeString('zh-CN', { hour12:false }) + '  ' + msg;
+  el.prepend(d);
+  if (el.children.length > 300) el.lastElementChild.remove();
+}
+function savedButton(btn, original) {
+  if (!btn) return;
+  const text = original || btn.textContent;
+  btn.textContent = '✓ 已保存';
+  setTimeout(() => { btn.textContent = text; }, 1500);
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text || ''); log('已复制到剪贴板', 'ok'); }
+  catch (err) { log(`复制失败：${err.message}`, 'err'); }
+}
+async function streamPost(path, body, onEvent) {
+  const res = await fetch('/api' + path, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', evType = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream:true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      if (line.startsWith('event:')) evType = line.slice(6).trim();
+      else if (line.startsWith('data:')) { onEvent({ type: evType || 'data', data: line.slice(5).trim() }); evType = ''; }
+    }
+  }
+}
+async function api(method, path, body, ct) {
+  try {
+    const opts = { method, headers:{} };
+    if (body !== undefined) {
+      opts.headers['Content-Type'] = ct || 'application/json';
+      opts.body = ct === 'text/plain' ? body : JSON.stringify(body);
+    }
+    const res = await fetch('/api' + path, opts);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  } catch (err) {
+    log(`API失败：${method} ${path} — ${err.message}`, 'err');
+    return null;
+  }
+}
+function parseEvent(ev) {
+  try { return JSON.parse(ev.data || '{}'); } catch { return {}; }
+}
+function val(id) { return document.getElementById(id)?.value.trim() || ''; }
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return esc(s).replace(/'/g,'&#39;'); }
+function cssEsc(s) { return String(s || '').replace(/["\\]/g, '\\$&'); }
+</script>
+</body>
+</html>

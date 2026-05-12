@@ -1,0 +1,32 @@
+{
+  "terminology": [
+    {
+      "en": "Decision criteria",
+      "definition": "The specific factors a reader should compare before choosing an option."
+    },
+    {
+      "en": "Use case",
+      "definition": "The reader's practical scenario, such as budget, urgency, quality needs, or volume."
+    }
+  ],
+  "authorityFacts": [
+    "Articles should answer the primary keyword intent early.",
+    "Recommendations should be based on supplied site knowledge, not invented product tests."
+  ],
+  "faq": [
+    {
+      "question": "What should a buyer compare first?",
+      "answer": "Start with use case, required features, risk level, and total cost before comparing individual offers."
+    }
+  ],
+  "objections": [
+    "unclear pricing",
+    "uncertain quality",
+    "too many similar options"
+  ],
+  "sellingPoints": [
+    "clear selection guidance",
+    "plain-English explanations",
+    "practical next steps"
+  ]
+}

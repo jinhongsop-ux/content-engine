@@ -1,0 +1,32 @@
+{
+  "pillarPages": [
+    {
+      "anchor": "complete buying guide",
+      "url": "/blog/complete-buying-guide/",
+      "topic": "buying guide",
+      "keywords": ["buying guide", "how to choose", "best option"]
+    },
+    {
+      "anchor": "price comparison guide",
+      "url": "/blog/price-comparison-guide/",
+      "topic": "price guide",
+      "keywords": ["price", "cost", "comparison"]
+    }
+  ],
+  "blogPosts": [
+    {
+      "anchor": "common buying mistakes",
+      "url": "/blog/common-buying-mistakes/",
+      "topic": "buyer education",
+      "keywords": ["mistakes", "avoid", "buyer risk"]
+    }
+  ],
+  "productPages": [
+    {
+      "anchor": "recommended options",
+      "url": "/products/recommended-options/",
+      "topic": "product category",
+      "keywords": ["buy", "options", "recommendation"]
+    }
+  ]
+}

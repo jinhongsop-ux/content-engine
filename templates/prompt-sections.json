@@ -1,0 +1,6 @@
+{
+  "authorDisclaimer": "Written by {authorName}, {authorTitle} at {brandName}. Reviewed for clarity and practical usefulness in {reviewDate}.",
+  "observationalClaim": "Use verified facts from the knowledge base. When making an editorial judgment, phrase it as practical guidance rather than an unsupported guarantee.",
+  "internalLinkRule": "Use only the provided internal links. Insert links naturally where they help the reader.",
+  "ctaStyle": "End with a practical next step that matches the site conversion goal."
+}
