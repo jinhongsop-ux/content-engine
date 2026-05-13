@@ -1,48 +1,177 @@
 {
+  "_说明": "QA 质检规则。qa.js 在生成完成后对照此文件检查每篇文章。hardFail 任一触发则文章不进入发布包，状态标记为 failed。warnings 触发后文章仍可发布，但 QA 分数扣减，日志中记录。",
+
   "hardFail": [
     {
-      "id": "empty_article",
-      "check": "article_tag_missing",
-      "message": "Missing <article> root element"
+      "id": "missing_article_tag",
+      "check": "missing_article_tag",
+      "message": "Output does not contain an <article> tag. Article HTML must be wrapped in <article>...</article>.",
+      "_说明": "程序要求所有输出用 article 标签包裹，缺失则无法写入输出文件"
     },
     {
-      "id": "too_short",
-      "check": "too_short",
-      "message": "Article is shorter than the configured word range"
+      "id": "word_count_too_low",
+      "check": "word_count_below_minimum",
+      "message": "Article word count is below the minimum for this article type. Check article-types.json → wordRange[0].",
+      "_说明": "字数低于类型最低值的 80% 则触发"
     },
     {
-      "id": "forbidden_word",
-      "check": "forbidden_word_found",
-      "message": "Contains forbidden wording from site.json"
+      "id": "mustnot_say_violation",
+      "check": "mustnot_say_match",
+      "message": "Article contains one or more expressions from site.json → mustNotSay[]. Remove or replace before publishing.",
+      "_说明": "扫描全文，mustNotSay 数组中每个词/短语都触发检查"
     },
     {
-      "id": "editor_markers",
-      "check": "editor_markers_found",
-      "message": "Contains TODO/editor/placeholder markers"
+      "id": "placeholder_present",
+      "check": "placeholder_detected",
+      "message": "Article contains an unfilled placeholder, TODO, [bracket content], or editor note. All markers must be resolved before publishing.",
+      "_说明": "匹配：TODO, PLACEHOLDER, [需要一手经验], [待插入], [填写], \\[.*?\\], <!-- editor"
+    },
+    {
+      "id": "missing_author_block",
+      "check": "author_block_absent",
+      "message": "Article does not contain an 'About this article' author block. Required for E-E-A-T compliance.",
+      "_说明": "检测 'About this article' 或 'Written by' 字符串存在"
+    },
+    {
+      "id": "missing_h1",
+      "check": "h1_absent",
+      "message": "Article does not contain an H1 heading.",
+      "_说明": "检测 <h1> 标签存在"
+    },
+    {
+      "id": "h1_missing_keyword",
+      "check": "h1_keyword_mismatch",
+      "message": "H1 does not contain the primary keyword or a close variant. SEO requirement not met.",
+      "_说明": "将 H1 文本与 keywords.csv → keyword 字段做宽松匹配"
+    },
+    {
+      "id": "no_difficulty_disclosure",
+      "check": "difficulty_not_disclosed",
+      "message": "Article mentions a kit but does not disclose difficulty level (Intermediate / Advanced) and estimated build time. Required by difficultyDisclosureRule.",
+      "_说明": "仅当文章类型为 buying-guide / how-to / comparison / listicle / pillar 时触发；FAQ 和 price-guide 豁免"
+    },
+    {
+      "id": "forbidden_product_adjective",
+      "check": "forbidden_adjective_detected",
+      "message": "Article contains a forbidden product descriptor: 'easy', 'simple', 'beginner-friendly', 'premium', 'magical', 'high quality', 'stunning', 'beautiful', 'life-changing', 'perfect for everyone'. Replace with a specific, verifiable description.",
+      "_说明": "完整黑名单：easy, simple, beginner-friendly, premium craftsmanship, high quality, magical experience, stunning, beautiful (用于产品描述时), life-changing, perfect for everyone, handmade, ethically sourced"
+    },
+    {
+      "id": "eeat_marker_unreplaced",
+      "check": "eeat_marker_present",
+      "message": "Article contains an unresolved E-E-A-T marker: '【需要一手经验】'. All first-person experience markers must be replaced with real content before publishing.",
+      "_说明": "检测 '需要一手经验' 字符串"
     }
   ],
+
   "warnings": [
     {
-      "id": "cta_missing",
-      "check": "cta_missing",
-      "message": "No clear CTA detected"
+      "id": "missing_cta",
+      "check": "cta_absent",
+      "message": "No CTA detected. Every article should end with a call-to-action linking to a product or category page.",
+      "scorePenalty": 8
     },
     {
-      "id": "internal_links_zero",
-      "check": "internal_links_zero",
-      "message": "No internal links detected"
+      "id": "no_internal_links",
+      "check": "internal_link_count_zero",
+      "message": "No internal links detected. Add at least 2 links to pillar pages and 1 to a category page.",
+      "scorePenalty": 12
     },
     {
-      "id": "author_block_missing",
-      "check": "author_block_missing",
-      "message": "Author block missing"
+      "id": "insufficient_internal_links",
+      "check": "internal_link_count_below_minimum",
+      "message": "Internal link count is below the minimum for this article type. Check article-types.json → internalLinkExpectations.",
+      "scorePenalty": 6
+    },
+    {
+      "id": "no_pillar_link",
+      "check": "pillar_link_absent",
+      "message": "No link to a pillar page detected. Every article must link to at least 2 pillar pages from links.json → pillarPages[].",
+      "scorePenalty": 10
+    },
+    {
+      "id": "missing_faq",
+      "check": "faq_section_absent",
+      "message": "No FAQ section detected. FAQ sections improve E-E-A-T signals and long-tail keyword coverage.",
+      "scorePenalty": 5
+    },
+    {
+      "id": "no_product_mention",
+      "check": "product_link_absent",
+      "message": "No product page link detected. Articles in this category should naturally reference at least one specific kit with a product link.",
+      "scorePenalty": 8
+    },
+    {
+      "id": "meta_description_missing",
+      "check": "meta_description_absent",
+      "message": "Meta description is missing from the publish package.",
+      "scorePenalty": 5
+    },
+    {
+      "id": "meta_description_too_long",
+      "check": "meta_description_over_155",
+      "message": "Meta description exceeds 155 characters. Trim to avoid truncation in search results.",
+      "scorePenalty": 3
+    },
+    {
+      "id": "schema_missing",
+      "check": "schema_json_ld_absent",
+      "message": "No Schema JSON-LD detected in the publish package. Add the schema type recommended in article-types.json.",
+      "scorePenalty": 5
+    },
+    {
+      "id": "brand_voice_flat",
+      "check": "brand_voice_generic_detected",
+      "message": "Article contains generic AI-style phrasing that conflicts with the Nookcraft brand voice. Check for: 'Furthermore', 'In conclusion', 'It's worth noting', 'Dive in', 'Game-changing', 'Seamlessly', 'Delve into'.",
+      "scorePenalty": 7
+    },
+    {
+      "id": "no_difficulty_on_first_mention",
+      "check": "difficulty_not_on_first_product_mention",
+      "message": "Difficulty and build time were not disclosed at the first kit mention. Move disclosure to first product reference.",
+      "scorePenalty": 6
+    },
+    {
+      "id": "opening_template_not_used",
+      "check": "opening_does_not_match_template",
+      "message": "Opening sentence does not follow any of the three templates in article-types.json → openingTemplates[]. Revise the opening.",
+      "scorePenalty": 4
+    },
+    {
+      "id": "cannibal_risk_unresolved",
+      "check": "cannibalcheck_field_not_empty",
+      "message": "keywords.csv → cannibalcheck field is not empty. Verify this article is sufficiently differentiated from the flagged existing article before publishing.",
+      "scorePenalty": 0,
+      "_说明": "分数不扣减，但会在 QA 报告里标红提示运营人员手动核查"
     }
   ],
+
   "scoreWeights": {
-    "seoStructure": 20,
-    "brandFit": 20,
-    "helpfulness": 20,
-    "readability": 20,
-    "publishReadiness": 20
+    "_说明": "五个维度总分 100。每个维度满分值如下，hardFail 触发时总分强制为 0，不计算各维度。",
+    "seoStructure": {
+      "maxScore": 25,
+      "description": "H1 含关键词 / 内链数量和质量 / Meta Description 存在且长度合适 / Schema 存在 / 开头句含关键词",
+      "_checks": ["h1_keyword_mismatch", "no_internal_links", "insufficient_internal_links", "meta_description_missing", "meta_description_too_long", "schema_missing"]
+    },
+    "brandFit": {
+      "maxScore": 20,
+      "description": "符合品牌语气（无泛用 AI 腔）/ 无 mustNotSay 违规 / 无禁用产品形容词 / 开头句使用规定模板",
+      "_checks": ["brand_voice_flat", "forbidden_product_adjective", "opening_template_not_used"]
+    },
+    "helpfulness": {
+      "maxScore": 25,
+      "description": "有 FAQ / 有具体操作细节 / 难度和时间已披露 / 产品自然植入 / 作者署名存在 / EEAT 标记已替换",
+      "_checks": ["missing_faq", "no_difficulty_disclosure", "no_difficulty_on_first_mention", "missing_author_block", "eeat_marker_unreplaced", "no_product_mention"]
+    },
+    "readability": {
+      "maxScore": 15,
+      "description": "段落长度合理 / 无连续长段落 / 有小标题分段 / 无占位符或 TODO",
+      "_checks": ["placeholder_present"]
+    },
+    "publishReadiness": {
+      "maxScore": 15,
+      "description": "有 CTA / Meta Description 存在 / Schema 存在 / article 标签存在 / 无未填写标记",
+      "_checks": ["missing_cta", "missing_article_tag", "placeholder_present", "meta_description_missing"]
+    }
   }
 }

@@ -10,7 +10,7 @@
  *  3. Manual overrides from the task's internalLinkTargets field (comma-separated URLs)
  *
  * Priority order is preserved from config-loader linkIndex:
- *   pillar > blog > product
+ *   pillar > category > product > blog > trust
  *
  * Returns at most 5 links (hard cap from SEO best practice).
  */
@@ -68,8 +68,10 @@ export function matchInternalLinks(linkIndex, keyword, manualTargets = '') {
       const anchorOverlap = tokenise(l.anchor).filter(w => kwWords.includes(w)).length;
       score += anchorOverlap;
 
-      // Pillar pages get a priority bonus
+      // Preserve editorial priority from the site template.
       if (l.type === 'pillar') score += 5;
+      if (l.type === 'category') score += 3;
+      if (l.type === 'product') score += 2;
 
       return { link: l, score };
     })

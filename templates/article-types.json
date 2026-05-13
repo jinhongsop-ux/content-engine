@@ -1,62 +1,241 @@
 {
-  "price-guide": {
-    "wordRange": [
-      800,
-      1200
-    ],
-    "schemaType": "Article",
-    "openingTemplates": [
-      "Answer the price question immediately, then explain context and tradeoffs."
-    ]
-  },
+  "_说明": "文章类型策略包。每种类型定义字数范围、Schema 类型、开头模板、大纲要求、内链期望、QA 侧重点和推荐样式块。程序 prompt-builder.js 读取此文件注入 Prompt。",
+  "_使用方式": "keywords.csv 的 articletype 字段值须与此文件的顶层 key 完全匹配。",
+
   "buying-guide": {
-    "wordRange": [
-      1000,
-      1600
-    ],
+    "_说明": "购买指南。目标读者正在做购买决策，需要对比选项、了解选购标准、最终指向具体产品页。",
+    "wordRange": [1200, 1800],
     "schemaType": "Article",
     "openingTemplates": [
-      "Start with the buying decision and the most important selection criteria."
-    ]
+      "After testing [N] kits across [skill range / theme / price point], one pattern becomes clear: [core buying insight].",
+      "Most buyers approach [topic] with the wrong question. The right one is: [reframe the decision].",
+      "The difference between a kit you finish and one you abandon comes down to [key variable] — and it's visible before you buy."
+    ],
+    "titleFormat": "Best [Product Category] [Year] — [Key Differentiator or Buyer Need]",
+    "outlineRequirements": {
+      "mustInclude": [
+        "H2: Who this guide is for (skill level, time, occasion)",
+        "H2: What to look for (difficulty rating, piece count, LED inclusion, instruction language)",
+        "H2: Top picks by [category or use case] with product cards",
+        "H2: FAQ — at least 3 questions from buyerFAQ[]",
+        "H2: Final recommendation"
+      ],
+      "mustAvoid": [
+        "Opening with brand introduction",
+        "Using 'best' without a stated selection criterion",
+        "Listing products without difficulty or time disclosure"
+      ]
+    },
+    "requiredSections": ["difficulty-disclosure", "product-plant", "internal-link-to-pillar", "author-block", "faq"],
+    "internalLinkExpectations": {
+      "pillarPages": 2,
+      "categoryPages": 1,
+      "productPages": 3
+    },
+    "qaFocus": ["difficulty-disclosed", "product-count", "pillar-linked", "mustNotSay-clean", "author-block-present"],
+    "recommendedStyleBlocks": ["articleIntro", "productCard", "comparisonTable", "faqBlock", "ctaBlock"]
   },
+
+  "price-guide": {
+    "_说明": "价格指南。帮助买家理解价格区间、判断性价比。聚焦「这个价格能买到什么」，避免纯粹堆砌价格数字。",
+    "wordRange": [1000, 1500],
+    "schemaType": "Article",
+    "openingTemplates": [
+      "Miniature house kits range from [low] to [high] — but the price difference isn't always about complexity. Here's what actually changes at each tier.",
+      "After reviewing [N] kits across [price range], the pattern is clear: [key insight about what price buys].",
+      "Most buyers overspend on their first kit. The right entry point is [price range], and here's why."
+    ],
+    "titleFormat": "[Product Category] Price Guide — What You Get at Every Budget",
+    "outlineRequirements": {
+      "mustInclude": [
+        "H2: Price tiers with what each tier includes (difficulty, piece count, LED, instructions)",
+        "H2: What drives the price difference (materials, complexity, included accessories)",
+        "H2: Best value picks at each tier with product cards",
+        "H2: FAQ on pricing — e.g. 'Is a $30 kit worth it?'"
+      ],
+      "mustAvoid": [
+        "Claiming a specific kit is 'cheap' or 'expensive' without context",
+        "Omitting difficulty disclosure next to price"
+      ]
+    },
+    "requiredSections": ["price-tier-breakdown", "difficulty-disclosure", "product-plant", "internal-link-to-pillar", "author-block"],
+    "internalLinkExpectations": {
+      "pillarPages": 2,
+      "categoryPages": 1,
+      "productPages": 2
+    },
+    "qaFocus": ["price-tiers-present", "difficulty-disclosed", "pillar-linked", "mustNotSay-clean"],
+    "recommendedStyleBlocks": ["articleIntro", "comparisonTable", "faqBlock", "ctaBlock"]
+  },
+
   "comparison": {
-    "wordRange": [
-      1200,
-      1800
-    ],
+    "_說明": "对比评测。A vs B 结构，帮助买家在两个或多个具体选项之间做最终决策。结尾必须给出明确建议，不允许「两者都好」结尾。",
+    "wordRange": [1200, 1800],
     "schemaType": "Article",
     "openingTemplates": [
-      "Compare the options by use case, cost, risk, and next step."
-    ]
-  },
-  "faq": {
-    "wordRange": [
-      600,
-      900
+      "The difference between [Kit A] and [Kit B] comes down to [key variable] — and it's visible if you know what to look at.",
+      "Both kits are good. But they're not good for the same builder. Here's which one fits your situation.",
+      "After building both, the decision is simpler than it looks: [core differentiator in one sentence]."
     ],
+    "titleFormat": "[Kit A] vs [Kit B]: Which Miniature Kit Is Right for You?",
+    "outlineRequirements": {
+      "mustInclude": [
+        "H2: Quick comparison table (difficulty, piece count, time, LED, price, instruction language)",
+        "H2: [Kit A] — who it's for, what to expect",
+        "H2: [Kit B] — who it's for, what to expect",
+        "H2: Head-to-head on [1-2 key dimensions]",
+        "H2: Final verdict — state explicitly who should pick each one",
+        "H2: FAQ"
+      ],
+      "mustAvoid": [
+        "Ending with 'both are great options'",
+        "Comparing kits without shared metrics",
+        "Omitting difficulty or time disclosure for either kit"
+      ]
+    },
+    "requiredSections": ["comparison-table", "difficulty-disclosure", "verdict", "product-plant", "author-block"],
+    "internalLinkExpectations": {
+      "pillarPages": 1,
+      "categoryPages": 1,
+      "productPages": 2
+    },
+    "qaFocus": ["verdict-present", "comparison-table-present", "difficulty-disclosed", "mustNotSay-clean"],
+    "recommendedStyleBlocks": ["articleIntro", "comparisonTable", "productCard", "faqBlock"]
+  },
+
+  "faq": {
+    "_说明": "FAQ 问答文章。围绕一个具体高频问题直接回答，前两句必须直接回答，不允许迂回或延迟。配合 FAQPage Schema。",
+    "wordRange": [600, 1000],
     "schemaType": "FAQPage",
     "openingTemplates": [
-      "Give a direct answer, then cover the most common follow-up questions."
-    ]
-  },
-  "how-to": {
-    "wordRange": [
-      1000,
-      1500
+      "[Direct answer to the question in 1-2 sentences]. Here's what that means in practice.",
+      "The short answer: [answer]. The longer answer depends on [key variable].",
+      "[Core answer]. Most guides overcomplicate this — here's what actually matters."
     ],
+    "titleFormat": "[Question as title]: [Direct Answer or Key Context]",
+    "outlineRequirements": {
+      "mustInclude": [
+        "H1 must be phrased as or derived from the target question",
+        "First paragraph: direct answer in ≤2 sentences",
+        "H2: Why / What this means in practice",
+        "H2: Related questions from buyerFAQ[]",
+        "CTA linking to relevant product or category page"
+      ],
+      "mustAvoid": [
+        "Delaying the answer past the first paragraph",
+        "Using 'it depends' as the opening sentence without immediately resolving the dependency"
+      ]
+    },
+    "requiredSections": ["direct-answer", "context-expansion", "related-faq", "cta"],
+    "internalLinkExpectations": {
+      "pillarPages": 1,
+      "categoryPages": 1,
+      "productPages": 1
+    },
+    "qaFocus": ["direct-answer-in-first-para", "faq-schema-present", "pillar-linked", "mustNotSay-clean"],
+    "recommendedStyleBlocks": ["faqBlock", "ctaBlock"]
+  },
+
+  "how-to": {
+    "_说明": "操作教程。聚焦完成一个具体任务的步骤。必须提前声明难度和预计时间，不允许声明「easy / simple」。每步骤必须可操作，不允许模糊指导。",
+    "wordRange": [1200, 2000],
     "schemaType": "HowTo",
     "openingTemplates": [
-      "Frame the task, prerequisites, steps, and common mistakes."
-    ]
-  },
-  "pillar": {
-    "wordRange": [
-      2200,
-      3500
+      "After evaluating [N] first-time builders working through this process, one step causes consistent trouble: [specific step]. Here's how to get through it.",
+      "This guide walks you through [task] step by step. Difficulty: Intermediate. Time: [X] hours, ideally split across two sessions.",
+      "Most instructions skip the step before step 1. This guide doesn't."
     ],
+    "titleFormat": "How to [Task]: Step-by-Step Guide for [Target Builder / Skill Level]",
+    "outlineRequirements": {
+      "mustInclude": [
+        "H2: What you need (tools, materials, kit contents)",
+        "H2: Before you start — difficulty, time estimate, session recommendation",
+        "H2 per major phase: Step-by-step with specific action verbs",
+        "H2: Common mistakes and how to fix them",
+        "H2: FAQ"
+      ],
+      "mustAvoid": [
+        "Describing a step as 'simple' or 'easy'",
+        "Omitting time estimate",
+        "Giving a step without a concrete action ('Make sure the glue is set' → 'Wait 10 minutes with light pressure applied')"
+      ]
+    },
+    "requiredSections": ["tools-list", "difficulty-disclosure", "steps", "troubleshooting", "author-block", "faq"],
+    "internalLinkExpectations": {
+      "pillarPages": 2,
+      "categoryPages": 1,
+      "productPages": 2
+    },
+    "qaFocus": ["difficulty-disclosed", "steps-actionable", "no-easy-simple", "pillar-linked", "author-block-present"],
+    "recommendedStyleBlocks": ["articleIntro", "stepBlock", "faqBlock", "ctaBlock"]
+  },
+
+  "pillar": {
+    "_说明": "支柱文章 / Topic Hub 博客版。覆盖一个大话题的全貌，向下导流到子话题文章和产品页，横向连接其他支柱页。字数最长，内链最多。",
+    "wordRange": [2500, 4000],
     "schemaType": "Article",
     "openingTemplates": [
-      "Open with the category problem, map the topic, and guide readers by section."
-    ]
+      "After evaluating [N] kits across [theme / price range / skill level], this guide covers everything you need to make a confident decision.",
+      "Miniature house kits span a wider range than most buyers expect — from [entry] to [advanced]. This guide maps the full landscape.",
+      "Most guides cover one type of kit. This one covers the decision behind choosing between them."
+    ],
+    "titleFormat": "The Complete Guide to [Topic]: [Year] — Everything You Need to Know",
+    "outlineRequirements": {
+      "mustInclude": [
+        "H2: Overview — what this guide covers and who it's for",
+        "H2 per major subtopic: each links to dedicated article or category page",
+        "H2: How to choose — difficulty, skill level, occasion",
+        "H2: Product recommendations by category with product cards",
+        "H2: FAQ — at least 5 questions from buyerFAQ[]",
+        "H2: Author perspective — EEAT signal from storyBank"
+      ],
+      "mustAvoid": [
+        "Treating pillar as a collection of introductory paragraphs without depth",
+        "Omitting internal links to cluster articles",
+        "Not disclosing difficulty for any kit mentioned"
+      ]
+    },
+    "requiredSections": ["overview", "subtopic-navigation", "difficulty-disclosure", "product-plant", "internal-link-to-clusters", "author-block", "faq"],
+    "internalLinkExpectations": {
+      "pillarPages": 1,
+      "categoryPages": 2,
+      "productPages": 4,
+      "blogPosts": 3
+    },
+    "qaFocus": ["internal-link-count", "faq-count", "difficulty-disclosed", "author-block-present", "pillar-linked", "word-count-min"],
+    "recommendedStyleBlocks": ["articleIntro", "sectionGrid", "relatedLinks", "faqBlock", "ctaBlock"]
+  },
+
+  "listicle": {
+    "_说明": "图文清单型文章。用 numbered list 驱动全文，每个条目都有具体内容（不允许只写产品名）。适合「Best X for Y」「Top N kits for Z」类话题。",
+    "wordRange": [1200, 2000],
+    "schemaType": "Article",
+    "openingTemplates": [
+      "After testing [N] kits, these [X] stand out — not because they're the most popular, but because they deliver on what they promise.",
+      "The miniature house kit market has more options than most buyers can evaluate. This list does the filtering.",
+      "These [N] kits represent different entry points — different difficulty levels, aesthetics, and time commitments. One of them is the right fit."
+    ],
+    "titleFormat": "[N] Best [Product Type] for [Use Case / Occasion] — Tested and Reviewed",
+    "outlineRequirements": {
+      "mustInclude": [
+        "H2: How we selected these kits (criteria: difficulty, LED included, English instructions, assembly time)",
+        "H2 per kit: product name as heading, difficulty + time, who it's for, what makes it stand out, product link",
+        "H2: Quick comparison table",
+        "H2: FAQ"
+      ],
+      "mustAvoid": [
+        "Item entries that are only product names without context",
+        "Claiming 'best' without stated selection criteria",
+        "More than 10 items without grouping by use case"
+      ]
+    },
+    "requiredSections": ["selection-criteria", "numbered-items-with-context", "comparison-table", "faq", "cta"],
+    "internalLinkExpectations": {
+      "pillarPages": 1,
+      "categoryPages": 1,
+      "productPages": 4
+    },
+    "qaFocus": ["item-count", "each-item-has-context", "comparison-table-present", "pillar-linked", "mustNotSay-clean"],
+    "recommendedStyleBlocks": ["articleIntro", "productCard", "sectionGrid", "ctaBlock"]
   }
 }

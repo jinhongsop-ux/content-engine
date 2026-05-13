@@ -1,11 +1,12 @@
 import { matchInternalLinks } from './link-matcher.js';
 
 export function buildPrompt(ctx, task) {
-  const { site, knowledge, author, promptSections, articleTypes, linkIndex } = ctx;
+  const { site, knowledge, author, promptSections, articleTypes, linkIndex, styleReference } = ctx;
   const typeKey = normaliseType(task.articletype || task.type || '');
   const typeConfig = articleTypes[typeKey] || articleTypes['buying-guide'];
   const [minWords, maxWords] = typeConfig.wordRange || [900, 1400];
-  const relevantLinks = matchInternalLinks(linkIndex, task.keyword, task.internallinkingurls || '');
+  const manualLinks = [task.pillartarget, task.internallinkingurls].filter(Boolean).join(',');
+  const relevantLinks = matchInternalLinks(linkIndex, task.keyword, manualLinks);
   const brandName = site.brandName || site.siteName || site.siteId;
   const reviewDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -26,6 +27,7 @@ export function buildPrompt(ctx, task) {
       maxWords,
       authorBlock,
       brandName,
+      styleReference,
     }),
     userPrompt: buildUserPrompt({
       task,
@@ -41,7 +43,7 @@ export function buildPrompt(ctx, task) {
   };
 }
 
-function buildSystemPrompt({ site, knowledge, author, promptSections, typeConfig, minWords, maxWords, authorBlock, brandName }) {
+function buildSystemPrompt({ site, knowledge, author, promptSections, typeConfig, minWords, maxWords, authorBlock, brandName, styleReference }) {
   const required = toArray(site.mustSay).map(s => `- ${s}`).join('\n');
   const forbidden = toArray(site.mustNotSay).map(s => `- ${s}`).join('\n');
   const style = site.writingStyle || {};
@@ -103,6 +105,14 @@ If a useful detail is missing, write around it rather than leaving placeholders.
 ${promptSections.internalLinkRule || ''}
 Use <a href="URL">anchor text</a> directly in the article body. Do not list links separately.`,
 
+    `# HTML Style Reference
+${styleReference && Object.keys(styleReference).length ? `
+Use this site-level style reference when choosing article HTML structure and class names:
+${summarize(styleReference, 3500)}
+
+${promptSections.styleReferenceRule || ''}
+` : 'No site style-reference.json is available. Use clean semantic article HTML and avoid full-page markup.'}`,
+
     `# Article Requirements
 Target length: ${minWords}-${maxWords} words.
 Schema type for metadata: ${typeConfig.schemaType || 'Article'}.
@@ -149,6 +159,11 @@ function buildUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, m
 - Article direction: ${task.direction || task.notes || task.editorialnotes || ''}
 - Target URL slug: ${task.urlslug || ''}
 - Target word count: ${task.targetwordcount || `${minWords}-${maxWords}`}
+- Search volume: ${task.volume || '(not provided)'}
+- KD / difficulty score: ${task.kd || '(not provided)'}
+- Cannibalization check: ${task.cannibalcheck || '(none)'}
+- Required pillar target: ${task.pillartarget || '(none)'}
+- Blog ID: ${task.blogid || '(none)'}
 
 ## Internal Links To Use Naturally
 ${linkBlock}
@@ -177,6 +192,8 @@ function normaliseType(raw) {
     vs: 'comparison',
     pillar: 'pillar',
     hub: 'pillar',
+    listicle: 'listicle',
+    list: 'listicle',
   };
   return map[key] || key || 'buying-guide';
 }

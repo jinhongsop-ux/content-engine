@@ -26,6 +26,7 @@ const CSV_COLUMNS = [
   'keyword', 'urlslug', 'priority', 'intent', 'articletype',
   'targetwordcount', 'secondarykeywords', 'variants',
   'direction', 'internallinkingurls',
+  'volume', 'kd', 'cannibalcheck', 'pillartarget', 'blogid',
 ];
 
 // Status fields stored separately in queue-state.json (not in CSV)
@@ -49,7 +50,7 @@ export class KeywordStore {
       try {
         const raw = fs.readFileSync(csvPath, 'utf-8');
         const records = parse(raw, { columns: true, skip_empty_lines: true, trim: true });
-        csvRows = records.map(r => normaliseRow(r));
+        csvRows = records.map(r => normaliseRow(r)).filter(isRealKeywordRow);
       } catch (e) {
         console.warn(`[keyword-store] keywords.csv parse error: ${e.message}`);
       }
@@ -164,7 +165,7 @@ export class KeywordStore {
 
   importCsv(csvText) {
     const records = parse(csvText, { columns: true, skip_empty_lines: true, trim: true });
-    const normalised = records.map(r => normaliseRow(r));
+    const normalised = records.map(r => normaliseRow(r)).filter(isRealKeywordRow);
 
     // Load existing status so we don't lose progress on re-import
     const existingStatus = {};
@@ -246,6 +247,11 @@ function emptyRow() {
   const r = {};
   for (const col of CSV_COLUMNS) r[col] = '';
   return r;
+}
+
+function isRealKeywordRow(row) {
+  const kw = String(row.keyword || '').trim();
+  return Boolean(kw) && !/^\[.*字段.*\]/i.test(kw) && !/^field\s*guide$/i.test(kw);
 }
 
 function slugify(str) {

@@ -45,6 +45,7 @@ export async function loadSiteContext(siteId) {
   const knowledge = readJson('knowledge.json');
   const author = readJson('author.json');
   const links = readJson('links.json');
+  const styleReference = readJson('style-reference.json');
 
   const keywords = readKeywords(siteDir, errors);
   const articleTypes = loadTemplate('article-types.json', defaultArticleTypes());
@@ -63,6 +64,7 @@ export async function loadSiteContext(siteId) {
     knowledge,
     author,
     links,
+    styleReference,
     keywords,
     linkIndex: buildLinkIndex(links),
     articleTypes,
@@ -100,6 +102,9 @@ function readKeywords(siteDir, errors) {
         out[key.toLowerCase().replace(/\s+/g, '')] = value;
       }
       return out;
+    }).filter(row => {
+      const kw = String(row.keyword || '').trim();
+      return Boolean(kw) && !/^\[.*字段.*\]/i.test(kw) && !/^field\s*guide$/i.test(kw);
     });
 
     if (keywords.length) {
@@ -137,8 +142,10 @@ function buildLinkIndex(links) {
   };
 
   addGroup(links.pillarPages || links.pillar_pages || links.topicHubs, 'pillar');
+  addGroup(links.categoryPages || links.category_pages || links.collections, 'category');
   addGroup(links.blogPosts || links.blog_posts || links.blogs, 'blog');
   addGroup(links.productPages || links.product_pages || links.products, 'product');
+  addGroup(links.trustPages || links.trust_pages, 'trust');
   return index;
 }
 
@@ -196,6 +203,11 @@ function defaultArticleTypes() {
       schemaType: 'Article',
       openingTemplates: ['Open with the category problem, map the topic, and guide readers by section.'],
     },
+    listicle: {
+      wordRange: [1200, 2000],
+      schemaType: 'Article',
+      openingTemplates: ['Open with the selection criteria, then explain the list by use case.'],
+    },
   };
 }
 
@@ -209,6 +221,8 @@ function defaultPromptSections() {
       'Use only the provided internal links. Insert links naturally where they help the reader.',
     ctaStyle:
       'End with a practical next step that matches the site conversion goal.',
+    styleReferenceRule:
+      'When style-reference.json is available, reuse its article container, typography classes, and sample blocks for CMS-embeddable article HTML.',
   };
 }
 

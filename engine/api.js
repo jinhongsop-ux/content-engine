@@ -31,6 +31,8 @@ const CONFIG_FILES = {
   knowledge: 'knowledge.json',
   author: 'author.json',
   links: 'links.json',
+  'style-reference': 'style-reference.json',
+  style: 'style-reference.json',
 };
 
 const TEMPLATE_FILES = {
@@ -48,7 +50,7 @@ const TEMPLATE_FILES = {
   },
 };
 
-const EDITABLE_SITE_FILES = new Set(['site.json', 'knowledge.json', 'author.json', 'links.json', 'keywords.csv']);
+const EDITABLE_SITE_FILES = new Set(['site.json', 'knowledge.json', 'author.json', 'links.json', 'style-reference.json', 'keywords.csv']);
 const stores = new Map();
 
 router.get('/sites', (req, res) => {
@@ -370,7 +372,9 @@ router.post('/sites/:siteId/outline/:slug', async (req, res) => {
     });
 
     fs.mkdirSync(ctx.outputDir, { recursive: true });
+    fs.mkdirSync(join(ctx.siteDir, 'outlines'), { recursive: true });
     fs.writeFileSync(join(ctx.outputDir, `${slug}.outline.json`), JSON.stringify(outline, null, 2), 'utf-8');
+    fs.writeFileSync(join(ctx.siteDir, 'outlines', `${slug}.json`), JSON.stringify(outline, null, 2), 'utf-8');
     store.setStatus(slug, 'outlined', { error: null });
 
     send('outline-done', { slug, keyword: row.keyword, status: 'outlined', outline });
@@ -396,7 +400,10 @@ router.post('/sites/:siteId/generate-article/:slug', async (req, res) => {
     const row = store.getOne(slug);
     if (!row) throw new Error(`Keyword "${slug}" not found`);
 
-    const outline = readJsonFile(join(ctx.outputDir, `${slug}.outline.json`));
+    const outline = readFirstJsonFile([
+      join(ctx.outputDir, `${slug}.outline.json`),
+      join(ctx.siteDir, 'outlines', `${slug}.json`),
+    ]);
     if (!outline) throw new Error('Please generate an outline before generating the article.');
 
     store.setStatus(slug, 'running');
@@ -412,6 +419,7 @@ router.post('/sites/:siteId/generate-article/:slug', async (req, res) => {
     fs.writeFileSync(join(ctx.outputDir, `${slug}.html`), result.html, 'utf-8');
     fs.writeFileSync(join(ctx.outputDir, `${slug}.qa.json`), JSON.stringify(result.qa, null, 2), 'utf-8');
     fs.writeFileSync(join(ctx.outputDir, `${slug}.data-pack.json`), JSON.stringify(result.dataPack, null, 2), 'utf-8');
+    fs.writeFileSync(join(ctx.outputDir, `${slug}-data-pack.json`), JSON.stringify(result.dataPack, null, 2), 'utf-8');
     await writeMeta(ctx, row, result.qa, result.meta);
 
     const status = result.qa.pass ? 'done' : 'failed';
@@ -460,7 +468,10 @@ router.get('/sites/:siteId/publish-pack/:slug', async (req, res) => {
 router.get('/sites/:siteId/outlines/:slug', (req, res) => {
   try {
     const siteDir = getSiteDir(req.params.siteId);
-    const outline = readJsonFile(join(siteDir, 'outputs', `${req.params.slug}.outline.json`));
+    const outline = readFirstJsonFile([
+      join(siteDir, 'outputs', `${req.params.slug}.outline.json`),
+      join(siteDir, 'outlines', `${req.params.slug}.json`),
+    ]);
     if (!outline) return res.status(404).json({ error: 'Outline not found' });
     res.json({ outline });
   } catch (err) {
@@ -484,9 +495,15 @@ router.get('/sites/:siteId/data-pack/:slug', async (req, res) => {
     const { siteId, slug } = req.params;
     const siteDir = getSiteDir(siteId);
     const outputDir = join(siteDir, 'outputs');
-    const outline = readJsonFile(join(outputDir, `${slug}.outline.json`));
+    const outline = readFirstJsonFile([
+      join(outputDir, `${slug}.outline.json`),
+      join(siteDir, 'outlines', `${slug}.json`),
+    ]);
     const qa = readJsonFile(join(outputDir, `${slug}.qa.json`));
-    const dataPack = readJsonFile(join(outputDir, `${slug}.data-pack.json`));
+    const dataPack = readFirstJsonFile([
+      join(outputDir, `${slug}.data-pack.json`),
+      join(outputDir, `${slug}-data-pack.json`),
+    ]);
     const publishPack = fs.existsSync(join(outputDir, `${slug}.html`))
       ? await buildPublishPack(siteId, slug)
       : null;
@@ -531,10 +548,12 @@ async function createSiteHandler(req, res) {
     if (fs.existsSync(siteDir)) return res.status(400).json({ error: `Site already exists: ${siteId}` });
 
     fs.mkdirSync(join(siteDir, 'outputs'), { recursive: true });
+    fs.mkdirSync(join(siteDir, 'outlines'), { recursive: true });
     fs.writeFileSync(join(siteDir, 'site.json'), JSON.stringify(makeDefaultSite(input, siteId), null, 2), 'utf-8');
     fs.writeFileSync(join(siteDir, 'knowledge.json'), JSON.stringify(makeDefaultKnowledge(), null, 2), 'utf-8');
     fs.writeFileSync(join(siteDir, 'author.json'), JSON.stringify(makeDefaultAuthor(input), null, 2), 'utf-8');
     fs.writeFileSync(join(siteDir, 'links.json'), JSON.stringify(makeDefaultLinks(), null, 2), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'style-reference.json'), JSON.stringify(makeDefaultStyleReference(), null, 2), 'utf-8');
     fs.writeFileSync(join(siteDir, 'keywords.csv'), defaultKeywordsCsv(), 'utf-8');
     stores.delete(siteId);
     res.json({ ok: true, siteId });
@@ -621,7 +640,7 @@ function splitList(value) {
 }
 
 function defaultKeywordsCsv() {
-  return 'keyword,urlslug,priority,intent,articletype,targetwordcount,secondarykeywords,variants,direction,internallinkingurls\n';
+  return 'keyword,urlslug,priority,intent,articletype,targetwordcount,secondarykeywords,variants,direction,internallinkingurls,volume,kd,cannibalcheck,pillartarget,blogid\n';
 }
 
 function makeDefaultSite(input, siteId) {
@@ -641,7 +660,7 @@ function makeDefaultSite(input, siteId) {
       sentenceStyle: '',
       avoidStyle: [],
     },
-    internalLinkPriority: ['pillarPages', 'blogPosts', 'productPages'],
+    internalLinkPriority: ['pillarPages', 'categoryPages', 'productPages', 'blogPosts'],
   };
 }
 
@@ -649,9 +668,13 @@ function makeDefaultKnowledge() {
   return {
     terminology: [],
     authorityFacts: [],
-    faq: [],
+    buyerFAQ: [],
+    buyerQuestions: [],
     objections: [],
     sellingPoints: [],
+    forbiddenClaims: [],
+    requiredClaims: [],
+    competitorContext: {},
   };
 }
 
@@ -668,8 +691,41 @@ function makeDefaultAuthor(input) {
 function makeDefaultLinks() {
   return {
     pillarPages: [],
+    categoryPages: [],
     blogPosts: [],
     productPages: [],
+    trustPages: [],
+  };
+}
+
+function makeDefaultStyleReference() {
+  return {
+    sourceUrl: '',
+    sourceType: 'homepage',
+    extractedDate: '',
+    extractedStyle: {
+      layout: '',
+      articleContainer: '',
+      typography: { h1: '', h2: '', h3: '', p: '', ul: '', ol: '', table: '' },
+      components: [],
+      cssConventions: '',
+      articleStructure: '',
+      do: [],
+      dont: [],
+    },
+    htmlRulesForGeneration: [],
+    sampleBlocks: {
+      articleIntro: '',
+      faqBlock: '',
+      productCard: '',
+      comparisonTable: '',
+      ctaBlock: '',
+      authorBlock: '',
+      stepBlock: '',
+      sectionGrid: '',
+      relatedLinks: '',
+      breadcrumb: '',
+    },
   };
 }
 
@@ -946,6 +1002,14 @@ function readJsonFile(filePath) {
   }
 }
 
+function readFirstJsonFile(filePaths) {
+  for (const filePath of filePaths) {
+    const parsed = readJsonFile(filePath);
+    if (parsed) return parsed;
+  }
+  return null;
+}
+
 async function buildPublishPack(siteId, slug) {
   const siteDir = getSiteDir(siteId);
   const htmlPath = join(siteDir, 'outputs', `${slug}.html`);
@@ -1104,6 +1168,11 @@ function defaultArticleTypes() {
       schemaType: 'Article',
       openingTemplates: ['Open with the category problem, map the topic, and guide readers by section.'],
     },
+    listicle: {
+      wordRange: [1200, 2000],
+      schemaType: 'Article',
+      openingTemplates: ['Open with the selection criteria, then explain the list by use case.'],
+    },
   };
 }
 
@@ -1113,6 +1182,7 @@ function defaultPromptSections() {
     observationalClaim: 'Use verified facts from the knowledge base. When making an editorial judgment, phrase it as practical guidance rather than an unsupported guarantee.',
     internalLinkRule: 'Use only the provided internal links. Insert links naturally where they help the reader.',
     ctaStyle: 'End with a practical next step that matches the site conversion goal.',
+    styleReferenceRule: 'When style-reference.json is available, reuse its article container, typography classes, and sample blocks for CMS-embeddable article HTML.',
   };
 }
 

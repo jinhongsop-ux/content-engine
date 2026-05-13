@@ -16,12 +16,35 @@ export function validate(html, meta, ctx, task) {
 
   const checks = {
     article_tag_missing: !/<article\b/i.test(html || '') || !/<\/article>/i.test(html || ''),
+    missing_article_tag: !/<article\b/i.test(html || '') || !/<\/article>/i.test(html || ''),
     too_short: result.wordCount < minWords,
+    word_count_below_minimum: result.wordCount < minWords,
     forbidden_word_found: hasForbiddenWord(html, site.mustNotSay || []),
+    mustnot_say_match: hasForbiddenWord(html, site.mustNotSay || []),
     editor_markers_found: hasEditorMarkers(html),
+    placeholder_detected: hasEditorMarkers(html),
     cta_missing: !hasCTA(html),
+    cta_absent: !hasCTA(html),
     internal_links_zero: countInternalLinks(html) === 0,
+    internal_link_count_zero: countInternalLinks(html) === 0,
+    internal_link_count_below_minimum: countInternalLinks(html) < expectedInternalLinks(typeConf),
+    pillar_link_absent: !hasAnyHref(html, ctx.links?.pillarPages || []),
+    product_link_absent: !hasAnyHref(html, ctx.links?.productPages || []),
     author_block_missing: !/class=["'][^"']*author-block/i.test(html || ''),
+    author_block_absent: !/author-block|about this article|written by/i.test(html || ''),
+    h1_absent: !/<h1\b/i.test(html || ''),
+    h1_keyword_mismatch: !h1ContainsKeyword(html, task.keyword),
+    difficulty_not_disclosed: needsDifficulty(task) && !/intermediate|advanced|(?:\d+\s*[–-]\s*\d+|\d+)\s*(?:hours|hrs)/i.test(strip(html)),
+    difficulty_not_on_first_product_mention: false,
+    forbidden_adjective_detected: hasForbiddenProductAdjective(html),
+    eeat_marker_present: /需要一手经验|E-E-A-T marker/i.test(html || ''),
+    faq_section_absent: !/faq|frequently asked|<h[23][^>]*>[^<]*questions/i.test(html || ''),
+    meta_description_absent: !meta?.metaDescription,
+    meta_description_over_155: Boolean(meta?.metaDescription && meta.metaDescription.length > 155),
+    schema_json_ld_absent: !meta?.schema || !Object.keys(meta.schema || {}).length,
+    brand_voice_generic_detected: /furthermore|in conclusion|it's worth noting|dive in|game-changing|seamlessly|delve into/i.test(strip(html)),
+    opening_does_not_match_template: false,
+    cannibalcheck_field_not_empty: Boolean(task.cannibalcheck),
     meta_missing: !meta || typeof meta !== 'object',
   };
 
@@ -36,13 +59,13 @@ export function validate(html, meta, ctx, task) {
     if (checks[rule.check]) result.warnings.push({ id: rule.id, message: rule.message });
   }
 
-  const weights = qaRules.scoreWeights || {
+  const weights = normalizeWeights(qaRules.scoreWeights || {
     seoStructure: 20,
     brandFit: 20,
     helpfulness: 20,
     readability: 20,
     publishReadiness: 20,
-  };
+  });
 
   result.scores.seoStructure = scoreSEO(html, task);
   result.scores.brandFit = scoreBrand(html, site);
@@ -141,6 +164,42 @@ function countInternalLinks(html) {
   return (html || '').match(/<a\s[^>]*href/gi)?.length || 0;
 }
 
+function expectedInternalLinks(typeConf) {
+  const exp = typeConf?.internalLinkExpectations;
+  if (!exp || typeof exp !== 'object') return 1;
+  return Object.values(exp).reduce((sum, n) => sum + Number(n || 0), 0);
+}
+
+function hasAnyHref(html, pages) {
+  const lower = String(html || '').toLowerCase();
+  return (pages || []).some(page => page.url && lower.includes(String(page.url).toLowerCase()));
+}
+
+function h1ContainsKeyword(html, keyword) {
+  const h1 = strip((String(html || '').match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '');
+  const kw = String(keyword || '').toLowerCase().trim();
+  if (!kw) return Boolean(h1);
+  return h1.toLowerCase().includes(kw) || kw.split(/\s+/).filter(w => w.length > 3).some(w => h1.toLowerCase().includes(w));
+}
+
+function needsDifficulty(task) {
+  return ['buying-guide', 'how-to', 'comparison', 'listicle', 'pillar'].includes(normaliseType(task.articletype || task.type || ''));
+}
+
+function hasForbiddenProductAdjective(html) {
+  return /\b(easy|simple|beginner-friendly|premium craftsmanship|high quality|magical experience|stunning|beautiful|life-changing|perfect for everyone|handmade|ethically sourced)\b/i.test(strip(html));
+}
+
+function normalizeWeights(weights) {
+  const out = {};
+  for (const [key, value] of Object.entries(weights || {})) {
+    out[key] = Number(value?.maxScore ?? value ?? 0);
+  }
+  const total = Object.values(out).reduce((sum, n) => sum + n, 0);
+  if (!total) return { seoStructure: 20, brandFit: 20, helpfulness: 20, readability: 20, publishReadiness: 20 };
+  return out;
+}
+
 function normaliseType(raw) {
   const key = String(raw || '').toLowerCase().trim();
   const map = {
@@ -150,6 +209,10 @@ function normaliseType(raw) {
     buyingguide: 'buying-guide',
     'how to': 'how-to',
     howto: 'how-to',
+    listicle: 'listicle',
+    list: 'listicle',
+    comparison: 'comparison',
+    pillar: 'pillar',
   };
   return map[key] || key || 'buying-guide';
 }
