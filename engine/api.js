@@ -13,7 +13,7 @@ import { dirname } from 'path';
 import { loadSiteContext, listSites } from './config-loader.js';
 import { TaskQueue } from './task-queue.js';
 import { KeywordStore } from './keyword-store.js';
-import { buildPrompt } from './prompt-builder.js';
+import { buildArticlePrompt, buildOutlinePrompt } from './prompt-builder.js';
 import { generate } from './generator.js';
 import { clean } from './cleaner.js';
 import { validate } from './qa.js';
@@ -516,7 +516,11 @@ router.get('/sites/:siteId/data-pack/:slug', async (req, res) => {
 router.get('/sites/:siteId/articles/:slug', (req, res) => {
   const p = join(SITES_DIR, req.params.siteId, 'outputs', `${req.params.slug}.html`);
   if (!fs.existsSync(p)) return res.status(404).json({ error: 'Article not found' });
-  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  const download = req.query.download === '1' || req.query.download === 'true';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  if (download) {
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.slug}.html"`);
+  }
   res.send(fs.readFileSync(p, 'utf-8'));
 });
 
@@ -740,42 +744,9 @@ function siteFileRole(name) {
 }
 
 async function generateOutline(ctx, row, apiConfig = {}) {
-  const { systemPrompt, userPrompt, relevantLinks, typeKey, typeConfig } = buildPrompt(ctx, row);
-  const prompt = `Create a detailed article outline before article drafting.
+  const { systemPrompt, userPrompt, typeKey, typeConfig } = buildOutlinePrompt(ctx, row);
 
-Return only valid JSON. No markdown fences. No commentary.
-
-JSON shape:
-{
-  "slug": "${row.urlslug}",
-  "keyword": "${row.keyword}",
-  "articleType": "${typeKey}",
-  "searchIntent": "short intent summary",
-  "workingTitle": "draft H1 title containing the primary keyword",
-  "targetWordCount": "${row.targetwordcount || typeConfig?.wordRange?.join('-') || ''}",
-  "readerPromise": "what the reader will learn or decide",
-  "sections": [
-    {
-      "level": "H2",
-      "heading": "section heading",
-      "purpose": "why this section exists",
-      "keyPoints": ["point 1", "point 2"],
-      "recommendedLinks": [{"anchor": "anchor text", "url": "/example/"}]
-    }
-  ],
-  "faq": [{"question": "question", "answerIntent": "what to answer"}],
-  "cta": "recommended CTA",
-  "qaRisks": ["possible risk to check before publishing"]
-}
-
-Context from the article prompt:
-
-${userPrompt}
-
-Matched internal links:
-${relevantLinks.map(link => `- ${link.anchor}: ${link.url} (${link.topic || link.type})`).join('\n') || '- none'}`;
-
-  const text = await callTextModel(systemPrompt, prompt, {
+  const text = await callTextModel(systemPrompt, userPrompt, {
     maxTokens: 3500,
     ...apiConfig,
   });
@@ -784,18 +755,9 @@ ${relevantLinks.map(link => `- ${link.anchor}: ${link.url} (${link.topic || link
 }
 
 async function generateArticleFromOutline(ctx, row, outline, apiConfig = {}) {
-  const prompt = buildPrompt(ctx, row);
-  const outlineText = JSON.stringify(outline, null, 2);
-  const userPrompt = `${prompt.userPrompt}
+  const prompt = buildArticlePrompt(ctx, row, outline);
 
-## Approved Outline
-Use this outline as the article plan. Preserve the intent, headings, key points, internal link guidance, CTA, and QA risks unless the site rules require a correction.
-
-${outlineText}
-
-Now write the full article from the approved outline. Output only the two required delimited blocks.`;
-
-  const genResult = await generate(prompt.systemPrompt, userPrompt, {
+  const genResult = await generate(prompt.systemPrompt, prompt.userPrompt, {
     ...apiConfig,
     apiKey: apiConfig.apiKey || ctx.site.apiKey || process.env.ANTHROPIC_API_KEY,
   });
@@ -815,7 +777,7 @@ Now write the full article from the approved outline. Output only the two requir
     generatedAt: new Date().toISOString(),
     prompts: {
       systemPrompt: prompt.systemPrompt,
-      userPrompt,
+      userPrompt: prompt.userPrompt,
     },
     meta: genResult.meta,
     qa,
@@ -927,10 +889,10 @@ function normalizeOutline(value, row, typeKey, typeConfig) {
     readerPromise: outline.metaDescription || `Help the reader understand ${row.keyword} and choose the right next step.`,
     sections: fallbackOutlineSections(row, typeKey),
     faq: [
-      { question: `What should I know before choosing ${row.keyword}?`, answerIntent: 'Answer with difficulty, materials, time, and fit.' },
-      { question: `How long does this type of kit usually take?`, answerIntent: 'Use Nookcraft difficulty and session guidance.' },
+      { question: `What should I know before choosing ${row.keyword}?`, answerIntent: 'Answer with the site knowledge base, buyer concerns, and practical next-step guidance.' },
+      { question: `How should I evaluate ${row.keyword} before making a decision?`, answerIntent: 'Use verified facts, brand rules, and relevant product/category context.' },
     ],
-    cta: 'Guide the reader to compare the relevant Nookcraft kit or collection.',
+    cta: 'Guide the reader to the most relevant category, product, pillar page, or trust page.',
     qaRisks: outline.qaRisks || [
       'Confirm all claims are supported by the knowledge base.',
       'Check difficulty and time guidance against site rules.',
@@ -954,30 +916,30 @@ function fallbackOutlineSections(row, typeKey) {
     },
     {
       level: 'H2',
-      heading: 'Difficulty, time, and what comes in the kit',
-      purpose: 'Set honest expectations before product consideration.',
-      keyPoints: ['Mention full-color English photo instructions.', 'Disclose Intermediate or Advanced difficulty and realistic session planning.', 'Mention LED string and replacement parts only when relevant.'],
+      heading: 'What to check before you decide',
+      purpose: 'Set honest expectations before product or category consideration.',
+      keyPoints: ['Use only verified facts from the knowledge base.', 'Address common buyer concerns.', 'Avoid unsupported or generic claims.'],
       recommendedLinks: [],
     },
     {
       level: 'H2',
-      heading: 'How to choose the right Nookcraft kit',
+      heading: 'How to choose the right next step',
       purpose: 'Move from education to buying criteria.',
-      keyPoints: ['Compare scene type, display space, patience level, and gift fit.', 'Use concrete criteria instead of generic praise.'],
+      keyPoints: ['Compare the relevant options by use case, constraints, and trust signals.', 'Use concrete criteria instead of generic praise.'],
       recommendedLinks: [],
     },
     {
       level: 'H2',
       heading: 'Common mistakes to avoid',
       purpose: 'Add practical usefulness and reduce returns or frustration.',
-      keyPoints: ['Do not rush small parts.', 'Test-fit before gluing.', 'Plan LED placement before final assembly.'],
+      keyPoints: ['Avoid decisions based on vague claims.', 'Check source, fit, care limits, and buyer intent.', 'Use the site trust rules before recommending a conversion step.'],
       recommendedLinks: [],
     },
     {
       level: 'H2',
       heading: 'FAQ',
       purpose: 'Answer final purchase or assembly questions.',
-      keyPoints: ['Cover time, difficulty, missing parts, and gifting suitability.'],
+      keyPoints: ['Cover the highest-risk buyer questions from the knowledge base.'],
       recommendedLinks: [],
     },
   ];
@@ -986,7 +948,7 @@ function fallbackOutlineSections(row, typeKey) {
       level: 'H2',
       heading: `Step-by-step plan for ${kw}`,
       purpose: 'Give the article a practical build sequence.',
-      keyPoints: ['Prepare tools and parts.', 'Sort pieces by stage.', 'Assemble structure, details, and LED lighting.', 'Finish and display.'],
+      keyPoints: ['Start with the prerequisite check.', 'Give concrete steps that match the topic.', 'Close with care, trust, or conversion guidance.'],
       recommendedLinks: [],
     });
   }

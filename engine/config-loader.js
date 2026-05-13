@@ -46,11 +46,12 @@ export async function loadSiteContext(siteId) {
   const author = readJson('author.json');
   const links = readJson('links.json');
   const styleReference = readJson('style-reference.json');
+  const projectInstructions = readText(join(siteDir, 'project-instructions.md'));
 
   const keywords = readKeywords(siteDir, errors);
-  const articleTypes = loadTemplate('article-types.json', defaultArticleTypes());
-  const promptSections = loadTemplate('prompt-sections.json', defaultPromptSections());
-  const qaRules = loadTemplate('qa-rules.json', defaultQaRules());
+  const articleTypes = loadTemplate(siteDir, 'article-types.json', defaultArticleTypes());
+  const promptSections = loadTemplate(siteDir, 'prompt-sections.json', defaultPromptSections());
+  const qaRules = loadTemplate(siteDir, 'qa-rules.json', defaultQaRules());
 
   if (errors.length) {
     throw new Error(`Config validation failed for site "${siteId}":\n- ${errors.join('\n- ')}`);
@@ -65,6 +66,7 @@ export async function loadSiteContext(siteId) {
     author,
     links,
     styleReference,
+    projectInstructions,
     keywords,
     linkIndex: buildLinkIndex(links),
     articleTypes,
@@ -149,14 +151,32 @@ function buildLinkIndex(links) {
   return index;
 }
 
-function loadTemplate(filename, defaults) {
-  const filePath = join(TEMPLATES_DIR, filename);
-  if (!fs.existsSync(filePath)) return defaults;
+function loadTemplate(siteDir, filename, defaults) {
+  const globalPath = join(TEMPLATES_DIR, filename);
+  const sitePath = join(siteDir, 'templates', filename);
+  let out = defaults;
+  if (fs.existsSync(globalPath)) {
+    try {
+      out = deepMerge(out, JSON.parse(fs.readFileSync(globalPath, 'utf-8')));
+    } catch (err) {
+      console.warn(`[config-loader] ${filename} is invalid; using defaults. ${err.message}`);
+    }
+  }
+  if (!fs.existsSync(sitePath)) return out;
   try {
-    return deepMerge(defaults, JSON.parse(fs.readFileSync(filePath, 'utf-8')));
+    return deepMerge(out, JSON.parse(fs.readFileSync(sitePath, 'utf-8')));
   } catch (err) {
-    console.warn(`[config-loader] ${filename} is invalid; using defaults. ${err.message}`);
-    return defaults;
+    console.warn(`[config-loader] site templates/${filename} is invalid; using global/default. ${err.message}`);
+    return out;
+  }
+}
+
+function readText(filePath) {
+  if (!fs.existsSync(filePath)) return '';
+  try {
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return '';
   }
 }
 

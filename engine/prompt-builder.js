@@ -1,6 +1,10 @@
 import { matchInternalLinks } from './link-matcher.js';
 
 export function buildPrompt(ctx, task) {
+  return buildArticlePrompt(ctx, task);
+}
+
+export function buildArticlePrompt(ctx, task, outline = null) {
   const { site, knowledge, author, promptSections, articleTypes, linkIndex, styleReference } = ctx;
   const typeKey = normaliseType(task.articletype || task.type || '');
   const typeConfig = articleTypes[typeKey] || articleTypes['buying-guide'];
@@ -28,6 +32,8 @@ export function buildPrompt(ctx, task) {
       authorBlock,
       brandName,
       styleReference,
+      projectInstructions: ctx.projectInstructions,
+      outputMode: 'article',
     }),
     userPrompt: buildUserPrompt({
       task,
@@ -36,6 +42,7 @@ export function buildPrompt(ctx, task) {
       relevantLinks,
       minWords,
       maxWords,
+      outline,
     }),
     typeKey,
     typeConfig,
@@ -43,7 +50,33 @@ export function buildPrompt(ctx, task) {
   };
 }
 
-function buildSystemPrompt({ site, knowledge, author, promptSections, typeConfig, minWords, maxWords, authorBlock, brandName, styleReference }) {
+export function buildOutlinePrompt(ctx, task) {
+  const { site, promptSections, articleTypes, linkIndex } = ctx;
+  const typeKey = normaliseType(task.articletype || task.type || '');
+  const typeConfig = articleTypes[typeKey] || articleTypes['buying-guide'];
+  const [minWords, maxWords] = typeConfig.wordRange || [900, 1400];
+  const manualLinks = [task.pillartarget, task.internallinkingurls].filter(Boolean).join(',');
+  const relevantLinks = matchInternalLinks(linkIndex, task.keyword, manualLinks);
+  const brandName = site.brandName || site.siteName || site.siteId;
+  const systemPrompt = buildSystemPrompt({
+    site,
+    knowledge: ctx.knowledge,
+    author: ctx.author,
+    promptSections,
+    typeConfig,
+    minWords,
+    maxWords,
+    authorBlock: '',
+    brandName,
+    styleReference: ctx.styleReference,
+    projectInstructions: ctx.projectInstructions,
+    outputMode: 'outline',
+  });
+  const userPrompt = buildOutlineUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, maxWords });
+  return { systemPrompt, userPrompt, typeKey, typeConfig, relevantLinks };
+}
+
+function buildSystemPrompt({ site, knowledge, author, promptSections, typeConfig, minWords, maxWords, authorBlock, brandName, styleReference, projectInstructions = '', outputMode = 'article' }) {
   const required = toArray(site.mustSay).map(s => `- ${s}`).join('\n');
   const forbidden = toArray(site.mustNotSay).map(s => `- ${s}`).join('\n');
   const style = site.writingStyle || {};
@@ -52,6 +85,12 @@ function buildSystemPrompt({ site, knowledge, author, promptSections, typeConfig
     `# Role
 You are the blog content writer for ${brandName}. Write as ${author.name || 'the site author'}${author.title ? ', ' + author.title : ''}.
 
+All reader-facing output must be written in ${site.language || 'en'}, even when configuration data is written in another language.
+Configuration and project instructions may be Chinese or English; interpret them, but write the article assets in ${site.language || 'en'}.
+
+${projectInstructions ? `# Site Project Instructions\nThese are the site-level project instructions. They override global templates when they are more specific, but they must not override the machine-readable output format required by this task.\n${summarize(projectInstructions, 6000)}` : ''}
+
+${outputMode === 'article' ? `
 CRITICAL: Your entire response MUST start with exactly ===HTML_START=== on its own line.
 Return exactly two delimited blocks and nothing else:
 
@@ -62,7 +101,8 @@ Return exactly two delimited blocks and nothing else:
 ===HTML_END===
 ===META_START===
 valid JSON object here
-===META_END===`,
+===META_END===` : `
+CRITICAL: Return only one valid JSON object. No markdown fences, no commentary, and do not write the article body.`}`,
 
     `# Site and Brand
 Site: ${brandName}
@@ -113,14 +153,15 @@ ${summarize(styleReference, 3500)}
 ${promptSections.styleReferenceRule || ''}
 ` : 'No site style-reference.json is available. Use clean semantic article HTML and avoid full-page markup.'}`,
 
-    `# Article Requirements
+    `# ${outputMode === 'article' ? 'Article' : 'Outline'} Requirements
 Target length: ${minWords}-${maxWords} words.
 Schema type for metadata: ${typeConfig.schemaType || 'Article'}.
-Use one H1, useful H2/H3 sections, paragraphs, lists, and tables only when they help the reader.
-No Markdown. No HTML/head/body/nav/footer/script/style/meta tags. No date stamps. No image tags. No editor notes.
+${outputMode === 'article'
+  ? 'Use one H1, useful H2/H3 sections, paragraphs, lists, and tables only when they help the reader.\nNo Markdown. No HTML/head/body/nav/footer/script/style/meta tags. No date stamps. No image tags. No editor notes.'
+  : 'Create a practical outline only. Include H1/H2 plan, section purpose, key points, recommended links, FAQ plan, CTA, SEO metadata plan, and QA risks. Do not draft paragraphs.'}
 ${promptSections.ctaStyle || ''}`,
 
-    `# Metadata JSON Schema
+    outputMode === 'article' ? `# Metadata JSON Schema
 The META block must be one valid JSON object:
 {
   "seoTitles": ["option 1 under 60 chars", "option 2 under 60 chars", "option 3 under 60 chars"],
@@ -136,11 +177,39 @@ The META block must be one valid JSON object:
   },
   "wordCount": 0,
   "qaFlags": []
+}` : `# Outline JSON Schema
+Return this shape exactly:
+{
+  "slug": "${site.siteId || ''}-slug",
+  "keyword": "primary keyword",
+  "articleType": "article type key",
+  "searchIntent": "search intent",
+  "workingTitle": "H1 title containing the primary keyword",
+  "targetWordCount": "number or range",
+  "readerPromise": "what the reader can decide or do after reading",
+  "seoTitles": ["title option 1", "title option 2", "title option 3"],
+  "metaDescription": "draft meta description under 155 characters",
+  "sections": [
+    {
+      "level": "H2",
+      "heading": "section heading",
+      "purpose": "why this section exists",
+      "targetKeyword": "primary or secondary keyword",
+      "keyPoints": ["point 1", "point 2"],
+      "requiredEvidence": ["knowledge/story/source needed"],
+      "recommendedLinks": [{"anchor": "anchor text", "url": "/example/"}],
+      "styleBlock": "sampleBlocks key when relevant"
+    }
+  ],
+  "faq": [{"question": "question", "answerIntent": "what to answer"}],
+  "cta": {"copy": "CTA copy", "targetUrl": "/target/", "targetType": "pillarPage|categoryPage|productPage"},
+  "qaRisks": [{"ruleId": "id", "risk": "risk", "mitigation": "how to avoid it"}],
+  "publishChecklist": [{"item": "check item", "done": false}]
 }`,
   ].join('\n\n---\n\n');
 }
 
-function buildUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, maxWords }) {
+function buildUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, maxWords, outline }) {
   const linkBlock = relevantLinks.length
     ? relevantLinks.map(link => `- <a href="${link.url}">${link.anchor}</a> (${link.topic || link.type})`).join('\n')
     : '- No required internal links were matched. Use none unless supplied in the task.';
@@ -173,8 +242,39 @@ ${opening}
 - Put the primary keyword in the H1 and first 100 words.
 - Use secondary keywords naturally in H2s and body copy.
 - Include practical examples, objections, comparison points, or FAQ when useful.
+${outline ? `\n## Approved Outline\nFollow this outline. Do not add unrelated sections. If a section conflicts with site rules, correct it while preserving the intent.\n${JSON.stringify(outline, null, 2)}` : ''}
 
 Now write the article. Output only the two required delimited blocks.`;
+}
+
+function buildOutlineUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, maxWords }) {
+  const linkBlock = relevantLinks.length
+    ? relevantLinks.map(link => `- ${link.anchor}: ${link.url} (${link.topic || link.type})`).join('\n')
+    : '- No required internal links were matched. Recommend only links supported by links.json or the keyword row.';
+  return `Create the pre-writing outline for this keyword task. Do not draft the article body.
+
+## Keyword Task
+- Primary keyword: ${task.keyword}
+- Secondary keywords: ${task.secondarykeywords || task.secondary || '(none)'}
+- Variants / long-tail terms: ${task.variants || task.longtail || '(none)'}
+- Search intent: ${task.intent || '(infer from keyword)'}
+- Article direction: ${task.direction || task.notes || task.editorialnotes || ''}
+- Article type: ${typeKey}
+- Target URL slug: ${task.urlslug || ''}
+- Target word count: ${task.targetwordcount || `${minWords}-${maxWords}`}
+- Search volume: ${task.volume || '(not provided)'}
+- KD / difficulty score: ${task.kd || '(not provided)'}
+- Cannibalization check: ${task.cannibalcheck || '(none)'}
+- Required pillar target: ${task.pillartarget || '(none)'}
+- Blog ID: ${task.blogid || '(none)'}
+
+## Matched Internal Links
+${linkBlock}
+
+## Article Type Strategy
+${summarize(typeConfig, 2500)}
+
+Return only valid JSON matching the outline schema.`;
 }
 
 function normaliseType(raw) {
