@@ -125,7 +125,7 @@ ${author.writingStyleNotes || ''}`,
 Author: ${author.name || 'Author'}
 Title: ${author.title || author.role || ''}
 Background: ${author.background || ''}
-Story bank: ${summarize(author.storyBank || author.stories || [], 1200)}
+Story bank: ${summarize(author.storyBank || author.stories || [], 3200)}
 
 Every article must end with this block before </article>:
 <div class="author-block">
@@ -136,22 +136,35 @@ Every article must end with this block before </article>:
 Use this as the source of truth. Do not invent unsupported details.
 ${summarize(knowledge, 5000)}`,
 
-    `# Claim Standards
+    `# First-Hand Experience and Claim Standards
 ${promptSections.observationalClaim || ''}
 Do not invent statistics, certifications, tests, prices, partnerships, guarantees, reviews, or personal experiences.
-If a useful detail is missing, write around it rather than leaving placeholders.`,
+Use the author's Story bank as approved first-hand source material. When the outline, project instructions, or article topic calls for first-hand experience, choose the most relevant story-bank detail and rewrite it naturally as publish-ready article prose in the author's voice.
+Do not output editor placeholders or request markers such as "【需要一手经验】", "[needs first-hand experience]", "E-E-A-T marker", "TODO", or "insert anecdote here".
+If no story-bank detail fits the exact point, write a more general evidence-aware sentence instead of leaving a placeholder.`,
 
     `# Internal Links
 ${promptSections.internalLinkRule || ''}
 Use <a href="URL">anchor text</a> directly in the article body. Do not list links separately.`,
 
-    `# HTML Style Reference
+    `# HTML Style Reference and Component Rules
 ${styleReference && Object.keys(styleReference).length ? `
-Use this site-level style reference when choosing article HTML structure and class names:
-${summarize(styleReference, 3500)}
+Use this site-level style reference when choosing article HTML structure, class names, and content blocks:
+${styleReference.styleBrief ? summarize(styleReference.styleBrief, 5000) : summarize(styleReference, 5000)}
 
 ${promptSections.styleReferenceRule || ''}
-` : 'No site style-reference.json is available. Use clean semantic article HTML and avoid full-page markup.'}`,
+` : 'No site style-reference.json is available. Use clean semantic article HTML and avoid full-page markup.'}
+
+The article must not look like plain unstyled text. Use publish-ready CMS-embeddable semantic HTML:
+- Use the configured article root class when available, such as <article class="...">.
+- Use section wrappers with site-specific classes for major blocks.
+- Use <blockquote> for sourced or reflective quotes when appropriate.
+- Use <aside> or a site-specific note/warning class for care notes, cautions, or key takeaways.
+- Use <ul>, <ol>, and <table> when they improve scanning.
+- Use FAQ accordion markup with <details><summary>Question</summary><p>Answer</p></details> when the article includes FAQ content.
+- Use CTA and related-link blocks with classes from the style reference when available.
+- Do not emit <style>, <script>, <head>, <body>, nav, footer, or full-page layout markup.
+- Do not use inline CSS unless the style reference explicitly says to do so.`,
 
     `# ${outputMode === 'article' ? 'Article' : 'Outline'} Requirements
 Target length: ${minWords}-${maxWords} words.

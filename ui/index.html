@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -214,10 +214,11 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
     </div>
     <div class="left-ctrl">
       <div class="ctrl-row">
-        <button class="btn btn-blue" style="flex:1" onclick="runAll()">▶ 运行全部待生成</button>
+        <button class="btn btn-blue" style="flex:1" onclick="runSelectedArticles()">▶ 运行已选文章生成</button>
         <button class="btn btn-sm" onclick="retryFailed()">重试失败</button>
       </div>
       <div class="ctrl-row">
+        <button class="btn btn-sm" onclick="runSelectedOutlines()">运行已选大纲</button>
         <button class="btn btn-sm" onclick="resetAll()">重置全部</button>
         <button class="btn btn-sm" onclick="resetSelected()">重置已选</button>
       </div>
@@ -339,6 +340,20 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
             <span class="hint">创建后会生成 site.json、knowledge.json、author.json、links.json、style-reference.json、keywords.csv</span>
           </div>
         </div>
+        <div class="config-card">
+          <div class="card-head">
+            <span class="card-title">建站资料向导</span>
+            <span class="hint">先创建站点，再上传原始资料/ZIP。AI 会识别模块、转换字段，并筛出无关文件。</span>
+          </div>
+          <div class="form-actions" style="margin-bottom:10px">
+            <button class="btn btn-blue" onclick="chooseSetupFiles()">上传资料文件/ZIP 并识别</button>
+            <button class="btn btn-green" onclick="applySelectedSetupFiles()">写入已勾选资料</button>
+            <span class="hint" id="setupHint">创建站点后可上传：品牌文档、作者档案、知识库、内链表、关键词表、样式参考、Project 指令等。</span>
+            <input type="file" id="setupFileInput" multiple accept=".csv,.json,.md,.txt,.xlsx,.zip" style="display:none" onchange="onSetupFiles(this)">
+          </div>
+          <div id="setupRequired"></div>
+          <div id="setupPreview"></div>
+        </div>
       </div>
     </section>
 
@@ -413,6 +428,15 @@ const TYPE_ZH = {
   listicle: '图文清单',
 };
 const STATUS_ZH = { queued: '待生成', outlined: '大纲完成', running: '生成中', done: '已完成', failed: '失败' };
+const SETUP_REQUIRED_ZH = {
+  'site.json': ['品牌/网站变量', '网站名、域名、语言、定位、受众、语气、必须表达/禁止表达'],
+  'author.json': ['作者档案/故事库', '作者身份、背景、写作风格、一手经验故事素材'],
+  'knowledge.json': ['品类知识库', '术语表、权威事实、FAQ、合规事实边界'],
+  'links.json': ['内链库', '专题页、产品页、分类页、已发布博客'],
+  'style-reference.json': ['样式参考', '文章 HTML 组件、FAQ 手风琴、CTA、引用块、品牌视觉规则'],
+  'project-instructions.md': ['Project 指令', '品牌 SOP、写作规范、合规边界、输出格式'],
+  'keywords.csv': ['关键词规划表', '关键词、slug、文章类型、字数、方向、内链目标'],
+};
 const DEFAULT_ARTICLE_TYPES = {
   'price-guide': { wordRange: [800, 1200], schemaType: 'Article', openingTemplates: ['Answer the price question immediately, then explain context and tradeoffs.'] },
   'buying-guide': { wordRange: [1000, 1600], schemaType: 'Article', openingTemplates: ['Start with the buying decision and the most important selection criteria.'] },
@@ -461,6 +485,7 @@ let configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{}
 let templates = { 'article-types':{}, 'prompt-sections':{}, 'qa-rules':{} };
 let drawerSlug = '';
 let drawerHtml = '';
+let setupFiles = [];
 
 init();
 
@@ -525,6 +550,7 @@ function switchPanel(name) {
   document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('on', btn.dataset.panel === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
   document.getElementById('panel-' + name)?.classList.add('on');
+  if (name === 'create' && currentSite) loadSetupStatus();
 }
 
 function switchSubtab(group, name) {
@@ -675,8 +701,10 @@ async function generateOutlineOne(slug, btn) {
   await reloadKeywords();
 }
 
-function runAll() { startBatch({}); }
-function retryFailed() { startBatch({ onlyFailed: true }); }
+function runAll() { runSelectedArticles(); }
+function runSelectedOutlines() { startBatch({ selectedOnly: true, mode: 'outline' }); }
+function runSelectedArticles() { startBatch({ selectedOnly: true, mode: 'article' }); }
+function retryFailed() { startBatch({ onlyFailed: true, mode: 'article' }); }
 
 async function startBatch(opts) {
   const apiConfig = getApiConfig();
@@ -685,18 +713,27 @@ async function startBatch(opts) {
   const pf = document.getElementById('progFill');
   const pl = document.getElementById('progLbl');
   pw.style.display = 'block'; pf.style.width = '0%'; pl.textContent = '准备中…';
-  const rows = keywords.filter(k => opts.onlyFailed ? k.status === 'failed' : k.status !== 'done');
+  let rows = keywords.filter(k => opts.onlyFailed ? k.status === 'failed' : selected.has(k.urlslug));
+  if (opts.selectedOnly && !rows.length) {
+    pw.style.display = 'none';
+    log('请先勾选要运行的关键词；如需全量运行，请先点击表头复选框全选。', 'err');
+    return;
+  }
   let done = 0, total = rows.length;
   pl.textContent = `0 / ${total}`;
   try {
     await runPool(rows, concurrency, async row => {
-      if (row.status !== 'outlined') {
+      if (opts.mode === 'outline') {
         log(`批量大纲：${row.urlslug}`, 'run');
         await streamPost(`/sites/${currentSite}/outline/${row.urlslug}`, apiConfig, ev => {
           const d = parseEvent(ev);
           if (ev.type === 'outline-done') log(`大纲完成：${row.urlslug}`, 'ok');
           if (ev.type === 'error') throw new Error(d.message || '大纲生成失败');
         });
+        done++;
+        pf.style.width = total ? Math.round(done / total * 100) + '%' : '0%';
+        pl.textContent = `${done} / ${total}`;
+        return;
       }
       log(`批量文章：${row.urlslug}`, 'run');
       await streamPost(`/sites/${currentSite}/generate-article/${row.urlslug}`, apiConfig, ev => {
@@ -987,27 +1024,44 @@ function renderLinksConfig() {
 
 function renderStyleReferenceConfig() {
   const sr = configs['style-reference'] || {};
+  document.getElementById('config-style-reference').innerHTML = `<div class="config-card">
+    <div class="card-head"><span class="card-title">样式参考总说明</span><span class="hint">用自然语言描述网站文章排版、组件和 HTML 结构。结构化旧字段会保留，但生成时优先读取这里。</span></div>
+    <div class="form-field span-all">
+      <label>style-reference brief</label>
+      <textarea id="sr_styleBrief" style="min-height:560px;font-family:'SF Mono','Consolas',monospace;font-size:12px;line-height:1.6">${esc(styleReferenceToText(sr))}</textarea>
+    </div>
+    <div class="hint" style="margin:8px 0 12px">建议写清楚：文章根 class、标题/段落节奏、FAQ 是否用 details/summary 手风琴、引用/提示/警告块、表格、列表、CTA、颜色气质、禁止 full-page HTML/CSS。</div>
+    <button class="btn btn-green btn-sm" onclick="saveStyleReferenceConfig(this)">保存样式参考</button>
+  </div>`;
+}
+
+function styleReferenceToText(sr = {}) {
+  if (sr.styleBrief) return sr.styleBrief;
   const style = sr.extractedStyle || {};
   const typo = style.typography || {};
   const blocks = sr.sampleBlocks || {};
-  document.getElementById('config-style-reference').innerHTML = `<div class="config-card">
-    <div class="form-grid">
-      ${field('sr_sourceUrl','参考页面 URL',sr.sourceUrl)}
-      ${field('sr_sourceType','页面类型',sr.sourceType || 'homepage')}
-      ${field('sr_extractedDate','提取日期',sr.extractedDate)}
-      ${textarea('sr_layout','布局说明',style.layout,'span-all')}
-      ${textarea('sr_articleContainer','正文容器结构 / class',style.articleContainer,'span-all')}
-      ${textarea('sr_typography','排版规则 JSON',JSON.stringify(typo, null, 2),'span-all')}
-      ${textarea('sr_components','可复用组件（每行一条）',toLines(style.components),'span-all')}
-      ${textarea('sr_cssConventions','CSS / class 命名规律',style.cssConventions,'span-all')}
-      ${textarea('sr_articleStructure','文章结构顺序',style.articleStructure,'span-all')}
-      ${textarea('sr_do','应该复用的结构',toLines(style.do),'span-all')}
-      ${textarea('sr_dont','禁止生成的结构',toLines(style.dont),'span-all')}
-      ${textarea('sr_rules','HTML生成规则',toLines(sr.htmlRulesForGeneration),'span-all')}
-      ${textarea('sr_blocks','样式块 sampleBlocks JSON',JSON.stringify(blocks, null, 2),'span-all')}
-    </div>
-    <button class="btn btn-green btn-sm" onclick="saveStyleReferenceConfig(this)">保存样式参考</button>
-  </div>`;
+  return [
+    `Source: ${sr.sourceUrl || ''}`,
+    `Article root: ${style.articleContainer || '<article class="site-article"> ... </article>'}`,
+    '',
+    'Typography and tone:',
+    typeof typo === 'object' ? JSON.stringify(typo, null, 2) : String(typo || ''),
+    '',
+    'Reusable components:',
+    toLines(style.components || []),
+    '',
+    'HTML generation rules:',
+    toLines(sr.htmlRulesForGeneration || []),
+    '',
+    'Do:',
+    toLines(style.do || []),
+    '',
+    'Do not:',
+    toLines(style.dont || []),
+    '',
+    'Sample blocks:',
+    JSON.stringify(blocks, null, 2),
+  ].join('\n').trim();
 }
 
 function field(id, label, value = '', extra = '') {
@@ -1049,28 +1103,10 @@ function collectLinksConfig() {
   return { ...configs.links, pillarPages: readLinks('pillarPages'), categoryPages: readLinks('categoryPages'), productPages: readLinks('productPages'), blogPosts: readLinks('blogPosts'), trustPages: readLinks('trustPages') };
 }
 function collectStyleReferenceConfig() {
-  let typography = {};
-  let sampleBlocks = {};
-  try { typography = JSON.parse(val('sr_typography') || '{}'); } catch { log('排版规则 JSON 格式错误，已保留为空对象', 'err'); }
-  try { sampleBlocks = JSON.parse(val('sr_blocks') || '{}'); } catch { log('样式块 JSON 格式错误，已保留为空对象', 'err'); }
   return {
     ...configs['style-reference'],
-    sourceUrl: val('sr_sourceUrl'),
-    sourceType: val('sr_sourceType') || 'homepage',
-    extractedDate: val('sr_extractedDate'),
-    extractedStyle: {
-      ...(configs['style-reference'].extractedStyle || {}),
-      layout: val('sr_layout'),
-      articleContainer: val('sr_articleContainer'),
-      typography,
-      components: fromLines(val('sr_components')),
-      cssConventions: val('sr_cssConventions'),
-      articleStructure: val('sr_articleStructure'),
-      do: fromLines(val('sr_do')),
-      dont: fromLines(val('sr_dont')),
-    },
-    htmlRulesForGeneration: fromLines(val('sr_rules')),
-    sampleBlocks,
+    styleBrief: valRaw('sr_styleBrief'),
+    updatedAt: new Date().toISOString(),
   };
 }
 async function saveSiteConfig(btn) { configs.site = collectSiteConfig(); await saveConfig('site', configs.site, btn); }
@@ -1145,42 +1181,60 @@ function renderLogic() {
 }
 function renderArticleTypes() {
   const data = templates['article-types'] || {};
-  document.getElementById('logic-article-types').innerHTML = `<div class="logic-grid">${Object.entries(data).map(([id,cfg]) => articleTypeCard(id,cfg)).join('')}</div><div class="form-actions" style="margin-top:10px"><button class="btn btn-green" onclick="saveArticleTypes(this)">保存文章类型设置</button></div>`;
-}
-function articleTypeCard(id, cfg = {}) {
-  const range = cfg.wordRange || [0,0];
-  return `<div class="logic-card" data-type="${escAttr(id)}">
-    <div class="card-head"><span class="card-title">${esc(id)}</span><button class="btn btn-sm" onclick="resetArticleType('${escAttr(id)}')">重置为默认</button></div>
-    <div class="form-grid">
-      <div class="form-field"><label>最小字数</label><input data-at="min" type="number" value="${range[0] || ''}"></div>
-      <div class="form-field"><label>最大字数</label><input data-at="max" type="number" value="${range[1] || ''}"></div>
-      <div class="form-field"><label>Schema类型</label><select data-at="schema">${['Article','HowTo','FAQPage'].map(v => `<option ${cfg.schemaType===v?'selected':''}>${v}</option>`).join('')}</select></div>
-      <div class="form-field"><label>标题格式</label><input data-at="titleFormat" value="${escAttr(cfg.titleFormat || '')}"></div>
-      <div class="form-field span-all"><label>开头句模板（每行一条）</label><textarea data-at="opening">${esc(toLines(cfg.openingTemplates || []))}</textarea></div>
+  document.getElementById('logic-article-types').innerHTML = `<div class="config-card">
+    <div class="card-head">
+      <span class="card-title">文章类型策略</span>
+      <span class="hint">这里维护文章类型的全局策略 JSON，不写固定标题句式或硬编码开头，避免文章同质化。</span>
+    </div>
+    <div class="form-field span-all">
+      <label>article-types.json</label>
+      <textarea id="articleTypesJson" style="min-height:560px;font-family:'SF Mono','Consolas',monospace;font-size:12px;line-height:1.55">${esc(JSON.stringify(stripHardcodedArticleTemplates(data), null, 2))}</textarea>
+    </div>
+    <div class="hint" style="margin-top:8px">建议只保留 wordRange、schemaType、strategy、structureNotes、avoid 等原则字段。单篇方向放关键词表，品牌写法放 Project 指令。</div>
+    <div class="form-actions" style="margin-top:10px">
+      <button class="btn btn-green" onclick="saveArticleTypes(this)">保存文章类型策略</button>
+      <button class="btn" onclick="formatArticleTypesJson()">格式化 JSON</button>
+      <button class="btn" onclick="resetAllArticleTypes()">恢复默认骨架</button>
     </div>
   </div>`;
 }
-function resetArticleType(id) {
-  templates['article-types'][id] = structuredClone(DEFAULT_ARTICLE_TYPES[id] || {});
-  renderArticleTypes();
-}
-function collectArticleTypes() {
-  const out = {};
-  document.querySelectorAll('[data-type]').forEach(card => {
-    const id = card.dataset.type;
-    out[id] = {
-      wordRange: [Number(card.querySelector('[data-at="min"]').value || 0), Number(card.querySelector('[data-at="max"]').value || 0)],
-      schemaType: card.querySelector('[data-at="schema"]').value,
-      openingTemplates: fromLines(card.querySelector('[data-at="opening"]').value),
-    };
-    const titleFormat = card.querySelector('[data-at="titleFormat"]').value.trim();
-    if (titleFormat) out[id].titleFormat = titleFormat;
+function stripHardcodedArticleTemplates(data) {
+  const out = structuredClone(data || {});
+  Object.values(out).forEach(cfg => {
+    if (!cfg || typeof cfg !== 'object') return;
+    delete cfg.titleFormat;
+    delete cfg.openingTemplates;
   });
   return out;
 }
+function formatArticleTypesJson() {
+  const el = document.getElementById('articleTypesJson');
+  try {
+    el.value = JSON.stringify(JSON.parse(el.value), null, 2);
+    log('文章类型策略 JSON 已格式化', 'ok');
+  } catch (err) {
+    log(`文章类型策略 JSON 格式错误：${err.message}`, 'err');
+  }
+}
+function resetAllArticleTypes() {
+  templates['article-types'] = stripHardcodedArticleTemplates(DEFAULT_ARTICLE_TYPES);
+  renderArticleTypes();
+  log('文章类型策略已恢复为默认骨架，保存后生效', 'ok');
+}
+function collectArticleTypes() {
+  const raw = document.getElementById('articleTypesJson')?.value || '{}';
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('article-types.json 必须是对象结构');
+  return stripHardcodedArticleTemplates(parsed);
+}
 async function saveArticleTypes(btn) {
-  templates['article-types'] = collectArticleTypes();
-  await saveTemplate('article-types', btn, '保存文章类型设置');
+  try {
+    templates['article-types'] = collectArticleTypes();
+  } catch (err) {
+    log(`文章类型策略保存失败：${err.message}`, 'err');
+    return;
+  }
+  await saveTemplate('article-types', btn, '保存文章类型策略');
 }
 
 function renderPromptSections() {
@@ -1291,8 +1345,100 @@ async function createSite(btn) {
   if (!res) return;
   showNotice(`站点 ${res.siteId} 已创建，请继续完善站点配置`);
   await loadSites(res.siteId);
-  switchPanel('config');
+  switchPanel('create');
+  await loadSetupStatus();
   log(`站点 ${res.siteId} 已创建`, 'ok');
+}
+
+async function loadSetupStatus() {
+  if (!currentSite) return;
+  const res = await api('POST', `/sites/${currentSite}/setup-preview`, { files: [{ name: 'readme.md', relativePath: 'readme.md', encoding: 'utf8', content: '# setup status probe' }], ...getApiConfigWithoutKey() });
+  if (res?.required) renderSetupRequired(res.required);
+}
+
+function chooseSetupFiles() {
+  if (!currentSite) return log('请先创建或选择站点', 'err');
+  document.getElementById('setupFileInput').click();
+}
+
+async function onSetupFiles(input) {
+  const files = [...(input.files || [])];
+  if (!files.length) return;
+  if (!currentSite) return log('请先创建或选择站点', 'err');
+  log(`开始识别 ${files.length} 个建站资料文件`, 'run');
+  const payload = [];
+  for (const file of files) {
+    const relativePath = file.webkitRelativePath || file.name;
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.xlsx') || lower.endsWith('.zip')) {
+      payload.push({ name: file.name, relativePath, encoding: 'base64', content: await fileToBase64(file) });
+    } else {
+      payload.push({ name: file.name, relativePath, encoding: 'utf8', content: await file.text() });
+    }
+  }
+  input.value = '';
+  const res = await api('POST', `/sites/${currentSite}/setup-preview`, { files: payload, ...getApiConfig() });
+  if (!res) return;
+  setupFiles = res.files || [];
+  renderSetupRequired(res.required || []);
+  renderSetupPreview();
+  log(`资料识别完成：${setupFiles.length} 个文件`, 'ok');
+}
+
+function renderSetupRequired(items = []) {
+  const el = document.getElementById('setupRequired');
+  if (!el) return;
+  el.innerHTML = `<table class="mini-table"><thead><tr><th>需要的文件</th><th>用途</th><th>状态</th></tr></thead><tbody>${items.map(item => `<tr>
+    <td style="font-family:monospace">${esc(item.file)}</td>
+    <td><strong>${esc((SETUP_REQUIRED_ZH[item.file] || [item.label])[0])}</strong><br><span class="hint">${esc((SETUP_REQUIRED_ZH[item.file] || [null, item.description])[1])}</span></td>
+    <td><span class="badge ${item.exists && item.size > 20 ? 'badge-done' : 'badge-queued'}">${item.exists && item.size > 20 ? '已上传' : '未上传完成'}</span></td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
+function renderSetupPreview() {
+  const el = document.getElementById('setupPreview');
+  if (!el) return;
+  if (!setupFiles.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card-head" style="margin-top:14px"><span class="card-title">AI 识别结果</span><span class="hint">勾选要写入的文件；无关文件会标记为忽略。</span></div>
+  <table class="mini-table"><thead><tr><th style="width:34px"></th><th>文件</th><th>识别模块</th><th>目标文件</th><th>置信度</th><th>说明</th></tr></thead><tbody>
+  ${setupFiles.map((file, i) => {
+    const actionable = file.target && file.target !== 'ignore' && file.status !== 'ignored';
+    return `<tr>
+      <td><input type="checkbox" data-setup-index="${i}" ${actionable ? 'checked' : 'disabled'}></td>
+      <td style="font-family:monospace">${esc(file.relativePath || file.name)}</td>
+      <td>${esc(file.module || 'ignore')}</td>
+      <td style="font-family:monospace">${esc(file.target || 'ignore')}</td>
+      <td>${Math.round((Number(file.confidence) || 0) * 100)}%</td>
+      <td>${esc(file.reason || file.aiError || '')}</td>
+    </tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+async function applySelectedSetupFiles() {
+  const selectedFiles = [...document.querySelectorAll('[data-setup-index]:checked')].map(input => setupFiles[Number(input.dataset.setupIndex)]).filter(Boolean);
+  if (!selectedFiles.length) return log('没有勾选可写入资料', 'err');
+  const res = await api('POST', `/sites/${currentSite}/setup-apply`, { files: selectedFiles });
+  if (!res) return;
+  renderSetupRequired(res.required || []);
+  log(`建站资料写入完成：${res.filesApplied || 0} 个文件`, res.errors?.length ? 'err' : 'ok');
+  (res.summary || []).forEach(item => log(`写入：${item.file} -> ${item.target}`, 'ok'));
+  (res.errors || []).forEach(item => log(`未写入：${item.file} - ${item.error}`, 'err'));
+  await Promise.all([loadSites(currentSite), loadConfigs(), reloadKeywords()]);
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+    reader.onerror = () => reject(reader.error || new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getApiConfigWithoutKey() {
+  const cfg = getApiConfig();
+  delete cfg.apiKey;
+  return cfg;
 }
 
 function applyModelPreset(name) {

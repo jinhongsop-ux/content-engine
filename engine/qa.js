@@ -37,7 +37,7 @@ export function validate(html, meta, ctx, task) {
     difficulty_not_disclosed: needsDifficulty(task) && !/intermediate|advanced|(?:\d+\s*[–-]\s*\d+|\d+)\s*(?:hours|hrs)/i.test(strip(html)),
     difficulty_not_on_first_product_mention: false,
     forbidden_adjective_detected: hasForbiddenProductAdjective(html),
-    eeat_marker_present: /需要一手经验|E-E-A-T marker/i.test(html || ''),
+    eeat_marker_present: /【需要一手经验|E-E-A-T marker/i.test(html || ''),
     faq_section_absent: !/faq|frequently asked|<h[23][^>]*>[^<]*questions/i.test(html || ''),
     meta_description_absent: !meta?.metaDescription,
     meta_description_over_155: Boolean(meta?.metaDescription && meta.metaDescription.length > 155),
@@ -75,6 +75,14 @@ export function validate(html, meta, ctx, task) {
   result.score = Math.round(Object.entries(weights).reduce((total, [key, weight]) => {
     return total + ((result.scores[key] || 0) * weight);
   }, 0));
+
+  const warningRules = new Map((qaRules.warnings || []).map(rule => [rule.id, rule]));
+  const warningPenalty = result.warnings.reduce((sum, warning) => {
+    const rule = warningRules.get(warning.id) || {};
+    return sum + Number(rule.scorePenalty ?? rule.penalty ?? 0);
+  }, 0);
+  if (warningPenalty) result.score = Math.max(0, result.score - warningPenalty);
+  result.status = result.hardFails.length ? 'blocked' : result.warnings.length ? 'review' : 'pass';
 
   return result;
 }

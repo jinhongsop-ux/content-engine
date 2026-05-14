@@ -4,9 +4,11 @@
 
 import { Router } from 'express';
 import { join } from 'path';
+import path from 'path';
 import fs from 'fs';
 import archiver from 'archiver';
 import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -50,7 +52,7 @@ const TEMPLATE_FILES = {
   },
 };
 
-const EDITABLE_SITE_FILES = new Set(['site.json', 'knowledge.json', 'author.json', 'links.json', 'style-reference.json', 'keywords.csv']);
+const EDITABLE_SITE_FILES = new Set(['site.json', 'knowledge.json', 'author.json', 'links.json', 'style-reference.json', 'project-instructions.md', 'keywords.csv']);
 const stores = new Map();
 
 router.get('/sites', (req, res) => {
@@ -72,6 +74,27 @@ router.get('/sites', (req, res) => {
 router.post('/sites', createSiteHandler);
 router.post('/sites/create', createSiteHandler);
 
+router.delete('/sites/:siteId', (req, res) => {
+  try {
+    const { siteId } = req.params;
+    const confirmSiteId = String(req.body?.confirmSiteId || '').trim();
+    if (confirmSiteId !== siteId) {
+      return res.status(400).json({ error: 'Deletion requires confirmSiteId matching the siteId.' });
+    }
+    const siteDir = getSiteDir(siteId);
+    const resolvedRoot = fs.realpathSync(SITES_DIR);
+    const resolvedSite = fs.realpathSync(siteDir);
+    if (!resolvedSite.startsWith(resolvedRoot + path.sep)) {
+      return res.status(400).json({ error: 'Refusing to delete outside the sites directory.' });
+    }
+    fs.rmSync(resolvedSite, { recursive: true, force: false });
+    stores.delete(siteId);
+    res.json({ ok: true, siteId });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.get('/sites/:siteId/config/:file', (req, res) => {
   try {
     const filePath = getConfigPath(req.params.siteId, req.params.file);
@@ -90,6 +113,27 @@ router.post('/sites/:siteId/config/:file', (req, res) => {
       return res.status(400).json({ error: 'Body must be { content: object }' });
     }
     fs.writeFileSync(filePath, JSON.stringify(content, null, 2), 'utf-8');
+    stores.delete(req.params.siteId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/sites/:siteId/project-instructions', (req, res) => {
+  try {
+    const p = join(getSiteDir(req.params.siteId), 'project-instructions.md');
+    res.json({ content: fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : '', exists: fs.existsSync(p) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/project-instructions', (req, res) => {
+  try {
+    const content = typeof req.body === 'string' ? req.body : req.body?.content;
+    if (typeof content !== 'string') return res.status(400).json({ error: 'Body must be { content: string }' });
+    fs.writeFileSync(join(getSiteDir(req.params.siteId), 'project-instructions.md'), content, 'utf-8');
     stores.delete(req.params.siteId);
     res.json({ ok: true });
   } catch (err) {
@@ -181,42 +225,42 @@ router.get('/pipeline', (_req, res) => {
     steps: [
       {
         id: 'site-config',
-        title: '1. 读取站点配置',
+        title: '1. Load site config and knowledge base',
         reads: ['sites/<siteId>/site.json', 'sites/<siteId>/knowledge.json', 'sites/<siteId>/author.json', 'sites/<siteId>/links.json'],
         code: ['engine/config-loader.js'],
-        output: '统一的 ctx 上下文，供后续模块引用',
+        output: 'Unified ctx object used by later modules',
       },
       {
         id: 'keyword-store',
-        title: '2. 读取关键词规划',
+        title: '2. Load keyword plan and queue state',
         reads: ['sites/<siteId>/keywords.csv', 'sites/<siteId>/outputs/queue-state.json'],
         code: ['engine/keyword-store.js'],
-        output: '合并后的关键词行，包含规划字段和状态字段',
+        output: 'Keyword task rows, generation status, errors, QA score and word count',
       },
       {
         id: 'prompt',
-        title: '3. 组装 Prompt',
-        reads: ['ctx.site', 'ctx.knowledge', 'ctx.author', 'ctx.linkIndex', 'templates/*.json', '当前 keyword row'],
+        title: '3. Build prompt',
+        reads: ['ctx.site', 'ctx.knowledge', 'ctx.author', 'ctx.linkIndex', 'templates/*.json', 'current keyword row'],
         code: ['engine/prompt-builder.js', 'engine/link-matcher.js'],
         output: 'systemPrompt + userPrompt',
       },
       {
         id: 'generate',
-        title: '4. 调用模型生成',
-        reads: ['systemPrompt', 'userPrompt', 'API Key'],
+        title: '4. Call model to generate outline or article',
+        reads: ['systemPrompt', 'userPrompt', 'API Key / model config'],
         code: ['engine/generator.js'],
-        output: '带分隔符的 HTML + META 原始输出',
+        output: 'Raw HTML, SEO metadata, schema, ALT text and publish-pack fields',
       },
       {
         id: 'split-clean-qa',
-        title: '5. 拆分、清洗、质检',
-        reads: ['模型原始输出', '站点规则', '文章类型规则'],
+        title: '5. Split, clean and QA check',
+        reads: ['model output', 'brand rules', 'QA rules'],
         code: ['engine/splitter.js', 'engine/cleaner.js', 'engine/qa.js'],
-        output: '干净 article HTML + QA 分数 + metadata',
+        output: 'clean article HTML + QA report + metadata',
       },
       {
         id: 'write',
-        title: '6. 写入输出文件',
+        title: '6. Write article and metadata files',
         reads: ['cleanHtml', 'meta', 'qaResult'],
         code: ['engine/task-queue.js', 'engine/meta-writer.js'],
         output: ['sites/<siteId>/outputs/<slug>.html', 'sites/<siteId>/outputs/meta-table.xlsx', 'sites/<siteId>/outputs/queue-state.json'],
@@ -228,9 +272,10 @@ router.get('/pipeline', (_req, res) => {
       'author.json': siteFileRole('author.json'),
       'links.json': siteFileRole('links.json'),
       'keywords.csv': siteFileRole('keywords.csv'),
-      'templates/article-types.json': '文章类型策略：字数范围、Schema 类型、结构倾向',
-      'templates/prompt-sections.json': '通用 Prompt 片段：作者声明、事实标准、内链规则、CTA 风格',
-      'templates/qa-rules.json': '质检规则：硬性拦截、警告、评分权重',
+      'project-instructions.md': 'Site-level project instructions for brand SOP, writing rules, compliance boundaries, output format and workflow.',
+      'templates/article-types.json': 'Article type strategy. Prefer global instruction text to avoid hard-coded titles and openings.',
+      'templates/prompt-sections.json': 'Prompt section templates for author statement, observational claims, links, CTA and style guidance.',
+      'templates/qa-rules.json': 'QA rules for hard fails, warnings and scoring weights.',
     },
   });
 });
@@ -269,6 +314,65 @@ router.delete('/sites/:siteId/keywords/:slug', async (req, res) => {
     const store = await getStore(req.params.siteId);
     store.remove(req.params.slug);
     res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/import-preview', async (req, res) => {
+  try {
+    const { siteId } = req.params;
+    const files = Array.isArray(req.body?.files) ? req.body.files : [];
+    if (!files.length) return res.status(400).json({ error: 'Body must include files: [{ name, content }]' });
+    const expanded = await expandImportFiles(files);
+    const previews = await Promise.all(expanded.map((file, index) => previewImportFile(siteId, file, index)));
+    res.json({ ok: true, files: previews });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/import-files', async (req, res) => {
+  try {
+    const { siteId } = req.params;
+    const files = Array.isArray(req.body?.files) ? req.body.files : [];
+    if (!files.length) return res.status(400).json({ error: 'Body must include files: [{ name, content }]' });
+    const result = await importSiteFiles(siteId, await expandImportFiles(files));
+    stores.delete(siteId);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/setup-preview', async (req, res) => {
+  try {
+    const { siteId } = req.params;
+    const files = Array.isArray(req.body?.files) ? req.body.files : [];
+    if (!files.length) return res.status(400).json({ error: 'Body must include files: [{ name, content }]' });
+    const expanded = await expandImportFiles(files);
+    const apiConfig = pickApiConfig(req.body || {});
+    const previews = [];
+    for (let i = 0; i < expanded.length; i++) {
+      const file = expanded[i];
+      const heuristic = await previewImportFile(siteId, file, i);
+      const ai = apiConfig.apiKey ? await classifySetupFileWithAI(file, apiConfig).catch(err => ({ error: err.message })) : null;
+      previews.push(normalizeSetupPreview(file, heuristic, ai, i));
+    }
+    res.json({ ok: true, required: setupRequiredFiles(siteId), files: previews });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/setup-apply', async (req, res) => {
+  try {
+    const { siteId } = req.params;
+    const files = Array.isArray(req.body?.files) ? req.body.files : [];
+    if (!files.length) return res.status(400).json({ error: 'Body must include selected files' });
+    const result = await applySetupFiles(siteId, files);
+    stores.delete(siteId);
+    res.json({ ok: true, required: setupRequiredFiles(siteId), ...result });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -558,12 +662,516 @@ async function createSiteHandler(req, res) {
     fs.writeFileSync(join(siteDir, 'author.json'), JSON.stringify(makeDefaultAuthor(input), null, 2), 'utf-8');
     fs.writeFileSync(join(siteDir, 'links.json'), JSON.stringify(makeDefaultLinks(), null, 2), 'utf-8');
     fs.writeFileSync(join(siteDir, 'style-reference.json'), JSON.stringify(makeDefaultStyleReference(), null, 2), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'project-instructions.md'), defaultProjectInstructions(input), 'utf-8');
     fs.writeFileSync(join(siteDir, 'keywords.csv'), defaultKeywordsCsv(), 'utf-8');
     stores.delete(siteId);
     res.json({ ok: true, siteId });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+}
+
+async function expandImportFiles(files) {
+  const out = [];
+  for (const file of files) {
+    const rawName = String(file.relativePath || file.name || '');
+    if (/\.zip$/i.test(rawName)) {
+      const zip = await JSZip.loadAsync(decodeImportFile(file));
+      const entries = Object.values(zip.files).filter(entry => !entry.dir);
+      for (const entry of entries) {
+        const buf = await entry.async('nodebuffer');
+        out.push({
+          name: path.basename(entry.name),
+          relativePath: entry.name,
+          encoding: isBinaryImport(entry.name) ? 'base64' : 'utf8',
+          content: isBinaryImport(entry.name) ? buf.toString('base64') : buf.toString('utf-8'),
+          sourceArchive: rawName,
+        });
+      }
+    } else {
+      out.push(file);
+    }
+  }
+  return out;
+}
+
+async function previewImportFile(siteId, file, index = 0) {
+  const siteDir = getSiteDir(siteId);
+  const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
+  const baseName = path.basename(rawName).toLowerCase();
+  const dirName = path.dirname(rawName).replace(/\\/g, '/').toLowerCase();
+  const buf = decodeImportFile(file);
+  const text = buf.toString('utf-8').replace(/^\uFEFF/, '');
+  const preview = {
+    id: String(index),
+    name: file.name || path.basename(rawName),
+    relativePath: rawName,
+    sourceArchive: file.sourceArchive || '',
+    encoding: file.encoding || 'utf8',
+    content: file.content || file.text || '',
+    action: 'ignored',
+    target: '',
+    status: 'unknown',
+    reason: '',
+    duplicate: false,
+  };
+
+  try {
+    if (baseName === 'keywords.csv' || (baseName.endsWith('.xlsx') && baseName.includes('keyword'))) {
+      const csv = baseName.endsWith('.xlsx') ? await workbookToCsv(buf) : text;
+      const report = await previewKeywords(siteId, csv);
+      return {
+        ...preview,
+        action: baseName.endsWith('.xlsx') ? 'keywords-xlsx-import' : 'keywords-import',
+        target: 'keywords.csv',
+        status: report.added ? 'ready' : 'skip',
+        reason: `${report.added} new, ${report.skipped} duplicate`,
+        keywordReport: report,
+        duplicate: report.added === 0,
+      };
+    }
+
+    if (['site.json', 'author.json', 'knowledge.json', 'links.json', 'style-reference.json'].includes(baseName)) {
+      JSON.parse(text);
+      return { ...preview, ...previewWrite(siteDir, baseName, 'site-config-write', text) };
+    }
+    if (baseName === 'project-instructions.md') {
+      return { ...preview, ...previewWrite(siteDir, 'project-instructions.md', 'project-instructions-write', text) };
+    }
+    if ((dirName.includes('templates') || ['article-types.json', 'prompt-sections.json', 'qa-rules.json'].includes(baseName)) && ['article-types.json', 'prompt-sections.json', 'qa-rules.json'].includes(baseName)) {
+      JSON.parse(text);
+      return { ...preview, ...previewWrite(join(siteDir, 'templates'), baseName, 'site-template-write', text, `templates/${baseName}`) };
+    }
+    if (baseName === 'outline.json' || baseName.endsWith('.outline.json')) {
+      const outline = JSON.parse(text);
+      const slug = slugify(outline.slug || outline.urlslug || outline.keyword || path.basename(baseName, '.json')) || 'outline-template';
+      return { ...preview, ...previewWrite(join(siteDir, 'outlines'), `${slug}.json`, 'outline-write', JSON.stringify(outline, null, 2), `outlines/${slug}.json`) };
+    }
+    if (baseName === 'data-pack.json' || baseName.endsWith('data-pack.json')) {
+      const pack = JSON.parse(text);
+      const slug = slugify(pack.slug || pack.urlslug || pack.keywordRow?.urlslug || pack.keyword || path.basename(baseName, '.json')) || 'data-pack-template';
+      return { ...preview, ...previewWrite(join(siteDir, 'outputs'), `${slug}.data-pack.json`, 'data-pack-write', JSON.stringify(pack, null, 2), `outputs/${slug}.data-pack.json`) };
+    }
+    if (isDocsImport(baseName, dirName)) {
+      return { ...preview, ...previewWrite(join(siteDir, 'docs'), baseName, 'docs-write', text, `docs/${baseName}`) };
+    }
+    return { ...preview, status: 'ignored', reason: 'No matching importer for this file name.' };
+  } catch (err) {
+    return { ...preview, status: 'error', reason: err.message };
+  }
+}
+
+function previewWrite(dir, filename, action, incoming, displayTarget = filename) {
+  const targetPath = join(dir, filename);
+  const exists = fs.existsSync(targetPath);
+  const same = exists && sameImportContent(filename, fs.readFileSync(targetPath, 'utf-8'), incoming);
+  return {
+    action,
+    target: displayTarget,
+    status: same ? 'skip' : exists ? 'overwrite' : 'ready',
+    duplicate: same,
+    reason: same ? 'Same content already exists' : exists ? 'Will overwrite existing file' : 'New file',
+  };
+}
+
+function sameImportContent(filename, a, b) {
+  if (/\.json$/i.test(filename)) {
+    try {
+      return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b));
+    } catch {}
+  }
+  const norm = value => String(value || '').replace(/\r\n/g, '\n').trim();
+  return norm(a) === norm(b);
+}
+
+function isDocsImport(baseName, dirName = '') {
+  if (baseName === '.gitkeep') return false;
+  if (baseName === 'keywords-field-guide.json' || baseName === 'readme.md') return true;
+  if (dirName.includes('reports')) return /\.(csv|json|md|txt)$/i.test(baseName);
+  return /(?:report|manifest|inventory|migration|notes|actions|field-guide)/i.test(baseName) && /\.(csv|json|md|txt)$/i.test(baseName);
+}
+
+function setupRequiredFiles(siteId) {
+  const siteDir = getSiteDir(siteId);
+  const items = [
+    ['site.json', 'Site variables', 'Site name, domain, language, positioning, audience, tone, mustSay and mustNotSay.'],
+    ['author.json', 'Author profile and story bank', 'Author identity, background, writing style, first-hand experience story material.'],
+    ['knowledge.json', 'Category knowledge base', 'Glossary, authoritative facts, FAQ, compliance boundaries and buyer concerns.'],
+    ['links.json', 'Internal link library', 'Topic hubs, product pages, category pages, and published blog posts.'],
+    ['style-reference.json', 'HTML style reference', 'Article components, FAQ accordion, CTA, quote blocks, tables, and brand visual rules.'],
+    ['project-instructions.md', 'Project instructions', 'Brand SOP, writing rules, compliance boundaries, output format and workflow instructions.'],
+    ['keywords.csv', 'Keyword plan', 'Keyword, slug, article type, target word count, direction and internal link targets.'],
+  ];
+  return items.map(([file, label, description]) => {
+    const filePath = join(siteDir, file);
+    const exists = fs.existsSync(filePath);
+    return {
+      file,
+      label,
+      description,
+      exists,
+      size: exists ? fs.statSync(filePath).size : 0,
+    };
+  });
+}
+
+async function classifySetupFileWithAI(file, apiConfig = {}) {
+  const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
+  const baseName = path.basename(rawName).toLowerCase();
+  const buf = decodeImportFile(file);
+  const text = baseName.endsWith('.xlsx') ? await workbookToCsv(buf) : buf.toString('utf-8').replace(/^\uFEFF/, '');
+  const sample = summarize(text, 12000);
+  const systemPrompt = `You classify and convert uploaded website onboarding files for a content-engine app.
+Return only valid JSON. No markdown.
+
+Allowed targets:
+- site.json
+- author.json
+- knowledge.json
+- links.json
+- style-reference.json
+- project-instructions.md
+- keywords.csv
+- templates/article-types.json
+- templates/prompt-sections.json
+- templates/qa-rules.json
+- docs/<safe-file-name>
+- ignore
+
+If the file is irrelevant, duplicated, a logo/image/binary asset, or cannot support any target, use target "ignore".
+For JSON targets, mappedContent must be an object matching the target's purpose.
+For project-instructions.md and keywords.csv, mappedContent must be a string.
+For docs/*, mappedContent may be a string or object.
+Do not invent website facts; extract and normalize only what is present.`;
+  const userPrompt = `File path: ${rawName}
+
+Content sample:
+${sample}
+
+Return this JSON shape:
+{
+  "target": "site.json | author.json | knowledge.json | links.json | style-reference.json | project-instructions.md | keywords.csv | templates/article-types.json | templates/prompt-sections.json | templates/qa-rules.json | docs/name.ext | ignore",
+  "module": "site | author | knowledge | links | style | project | keywords | template | docs | ignore",
+  "confidence": 0.0,
+  "reason": "short reason",
+  "mappedContent": {}
+}`;
+  const textOut = await callTextModel(systemPrompt, userPrompt, { maxTokens: 4500, ...apiConfig });
+  return parseJsonFromText(textOut);
+}
+
+function normalizeSetupPreview(file, heuristic, ai, index = 0) {
+  const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
+  const aiTarget = ai && !ai.error ? String(ai.target || '').trim() : '';
+  const target = aiTarget && aiTarget !== 'ignore' ? sanitizeSetupTarget(aiTarget, rawName) : heuristic.target;
+  const module = ai && !ai.error ? ai.module || targetToSetupModule(target) : targetToSetupModule(heuristic.target);
+  const status = aiTarget === 'ignore' || heuristic.status === 'ignored'
+    ? 'ignored'
+    : heuristic.status === 'error'
+      ? 'review'
+      : heuristic.status || 'review';
+  return {
+    id: String(index),
+    name: file.name || path.basename(rawName),
+    relativePath: rawName,
+    sourceArchive: file.sourceArchive || '',
+    encoding: file.encoding || 'utf8',
+    content: file.content || file.text || '',
+    target,
+    module,
+    status,
+    confidence: Number(ai?.confidence ?? (heuristic.status === 'ignored' ? 0.25 : 0.75)),
+    reason: ai?.reason || ai?.error || heuristic.reason || '',
+    aiError: ai?.error || '',
+    mappedContent: ai && !ai.error ? ai.mappedContent : null,
+    heuristic,
+  };
+}
+
+function sanitizeSetupTarget(target, rawName = '') {
+  const clean = String(target || '').replace(/\\/g, '/').replace(/^\/+/, '');
+  const allowed = new Set(['site.json', 'author.json', 'knowledge.json', 'links.json', 'style-reference.json', 'project-instructions.md', 'keywords.csv']);
+  if (allowed.has(clean)) return clean;
+  if (/^templates\/(article-types|prompt-sections|qa-rules)\.json$/.test(clean)) return clean;
+  if (clean.startsWith('docs/')) return 'docs/' + path.basename(clean);
+  if (clean === 'ignore') return 'ignore';
+  if (/\.md$|\.txt$|\.csv$|\.json$/i.test(rawName)) return 'docs/' + path.basename(rawName);
+  return 'ignore';
+}
+
+function targetToSetupModule(target = '') {
+  if (target === 'site.json') return 'site';
+  if (target === 'author.json') return 'author';
+  if (target === 'knowledge.json') return 'knowledge';
+  if (target === 'links.json') return 'links';
+  if (target === 'style-reference.json') return 'style';
+  if (target === 'project-instructions.md') return 'project';
+  if (target === 'keywords.csv') return 'keywords';
+  if (target.startsWith('templates/')) return 'template';
+  if (target.startsWith('docs/')) return 'docs';
+  return 'ignore';
+}
+
+async function applySetupFiles(siteId, files) {
+  const siteDir = getSiteDir(siteId);
+  const summary = [];
+  const errors = [];
+  for (const file of files) {
+    try {
+      const target = sanitizeSetupTarget(file.target || '', file.relativePath || file.name || '');
+      if (!target || target === 'ignore') {
+        summary.push({ file: file.relativePath || file.name, action: 'ignored', target: 'ignore' });
+        continue;
+      }
+      const raw = decodeImportFile(file).toString('utf-8').replace(/^\uFEFF/, '');
+      const mapped = file.mappedContent;
+      if (target === 'keywords.csv') {
+        const csv = typeof mapped === 'string' && mapped.trim()
+          ? mapped
+          : /\.xlsx$/i.test(file.relativePath || file.name || '')
+            ? await workbookToCsv(decodeImportFile(file))
+            : raw;
+        const report = await importKeywordsCsvDirect(siteId, csv);
+        summary.push({ file: file.relativePath || file.name, action: 'keywords-imported', target, ...report });
+        continue;
+      }
+      if (target === 'project-instructions.md') {
+        fs.writeFileSync(join(siteDir, target), typeof mapped === 'string' ? mapped : raw, 'utf-8');
+        summary.push({ file: file.relativePath || file.name, action: 'written', target });
+        continue;
+      }
+      if (target.startsWith('templates/')) {
+        fs.mkdirSync(join(siteDir, 'templates'), { recursive: true });
+        const content = mapped && typeof mapped === 'object' ? mapped : JSON.parse(raw);
+        fs.writeFileSync(join(siteDir, target), JSON.stringify(content, null, 2), 'utf-8');
+        summary.push({ file: file.relativePath || file.name, action: 'written', target });
+        continue;
+      }
+      if (target.startsWith('docs/')) {
+        fs.mkdirSync(join(siteDir, 'docs'), { recursive: true });
+        const content = mapped && typeof mapped === 'object' ? JSON.stringify(mapped, null, 2) : (typeof mapped === 'string' ? mapped : raw);
+        fs.writeFileSync(join(siteDir, target), content, 'utf-8');
+        summary.push({ file: file.relativePath || file.name, action: 'written', target });
+        continue;
+      }
+      if (['site.json', 'author.json', 'knowledge.json', 'links.json', 'style-reference.json'].includes(target)) {
+        const current = fs.existsSync(join(siteDir, target)) ? JSON.parse(fs.readFileSync(join(siteDir, target), 'utf-8')) : {};
+        const content = mapped && typeof mapped === 'object' ? mergeObjects(current, mapped) : JSON.parse(raw);
+        fs.writeFileSync(join(siteDir, target), JSON.stringify(content, null, 2), 'utf-8');
+        summary.push({ file: file.relativePath || file.name, action: 'written', target });
+        continue;
+      }
+      errors.push({ file: file.relativePath || file.name, error: 'Unsupported setup target: ' + target });
+    } catch (err) {
+      errors.push({ file: file.relativePath || file.name, error: err.message });
+    }
+  }
+  return { summary, errors, filesApplied: summary.filter(s => s.action !== 'ignored').length };
+}
+
+function mergeObjects(a, b) {
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return b;
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return b ?? a;
+  const out = { ...a };
+  for (const [key, value] of Object.entries(b)) {
+    if (value === undefined || value === null || value === '') continue;
+    if (Array.isArray(value)) out[key] = value.length ? value : out[key];
+    else if (typeof value === 'object') out[key] = mergeObjects(out[key], value);
+    else out[key] = value;
+  }
+  return out;
+}
+
+async function previewKeywords(siteId, csvText) {
+  const siteDir = getSiteDir(siteId);
+  const csvPath = join(siteDir, 'keywords.csv');
+  const existingRows = readKeywordRows(fs.existsSync(csvPath) ? fs.readFileSync(csvPath, 'utf-8') : '');
+  const incomingRows = readKeywordRows(csvText);
+  const existingSlugs = new Set(existingRows.map(r => String(r.urlslug || '').toLowerCase()));
+  const existingKeywords = new Set(existingRows.map(r => String(r.keyword || '').trim().toLowerCase()).filter(Boolean));
+  let added = 0;
+  let skipped = 0;
+  for (const row of incomingRows) {
+    const slug = String(row.urlslug || slugify(row.keyword)).toLowerCase();
+    const keyword = String(row.keyword || '').trim().toLowerCase();
+    if (existingSlugs.has(slug) || (keyword && existingKeywords.has(keyword))) skipped++;
+    else {
+      added++;
+      existingSlugs.add(slug);
+      if (keyword) existingKeywords.add(keyword);
+    }
+  }
+  return { added, skipped, total: incomingRows.length };
+}
+
+async function importSiteFiles(siteId, files) {
+  const siteDir = getSiteDir(siteId);
+  const summary = [];
+  const errors = [];
+  let importedKeywords = 0;
+  let skippedDuplicates = 0;
+
+  for (const file of files) {
+    try {
+      const preview = await previewImportFile(siteId, file, summary.length + errors.length);
+      if (preview.status === 'skip') {
+        skippedDuplicates += preview.keywordReport?.skipped || 1;
+        summary.push({ file: preview.relativePath, action: 'skipped-duplicate', target: preview.target, reason: preview.reason });
+        continue;
+      }
+      if (preview.status === 'ignored' || preview.status === 'error') {
+        errors.push({ file: preview.relativePath, error: preview.reason });
+        continue;
+      }
+
+      const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
+      const baseName = path.basename(rawName).toLowerCase();
+      const dirName = path.dirname(rawName).replace(/\\/g, '/').toLowerCase();
+      const buf = decodeImportFile(file);
+      const text = buf.toString('utf-8').replace(/^\uFEFF/, '');
+
+      if (baseName === 'keywords.csv') {
+        const report = await importKeywordsCsvDirect(siteId, text);
+        importedKeywords += report.added;
+        skippedDuplicates += report.skipped;
+        summary.push({ file: rawName, action: 'keywords-imported', target: 'keywords.csv', ...report });
+        continue;
+      }
+
+      if (baseName.endsWith('.xlsx') && baseName.includes('keyword')) {
+        const report = await importKeywordsCsvDirect(siteId, await workbookToCsv(buf));
+        importedKeywords += report.added;
+        skippedDuplicates += report.skipped;
+        summary.push({ file: rawName, action: 'keywords-xlsx-imported', target: 'keywords.csv', ...report });
+        continue;
+      }
+
+      if (['site.json', 'author.json', 'knowledge.json', 'links.json', 'style-reference.json'].includes(baseName)) {
+        fs.writeFileSync(join(siteDir, baseName), JSON.stringify(JSON.parse(text), null, 2), 'utf-8');
+        summary.push({ file: rawName, action: 'site-config-written', target: baseName, status: preview.status });
+        continue;
+      }
+
+      if (baseName === 'project-instructions.md') {
+        fs.writeFileSync(join(siteDir, 'project-instructions.md'), text, 'utf-8');
+        summary.push({ file: rawName, action: 'project-instructions-written', target: 'project-instructions.md', status: preview.status });
+        continue;
+      }
+
+      if ((dirName.includes('templates') || ['article-types.json', 'prompt-sections.json', 'qa-rules.json'].includes(baseName)) && ['article-types.json', 'prompt-sections.json', 'qa-rules.json'].includes(baseName)) {
+        fs.mkdirSync(join(siteDir, 'templates'), { recursive: true });
+        fs.writeFileSync(join(siteDir, 'templates', baseName), JSON.stringify(JSON.parse(text), null, 2), 'utf-8');
+        summary.push({ file: rawName, action: 'site-template-written', target: 'templates/' + baseName, status: preview.status });
+        continue;
+      }
+
+      if (baseName === 'outline.json' || baseName.endsWith('.outline.json')) {
+        const outline = JSON.parse(text);
+        const slug = slugify(outline.slug || outline.urlslug || outline.keyword || path.basename(baseName, '.json')) || 'outline-template';
+        fs.mkdirSync(join(siteDir, 'outlines'), { recursive: true });
+        fs.writeFileSync(join(siteDir, 'outlines', slug + '.json'), JSON.stringify(outline, null, 2), 'utf-8');
+        summary.push({ file: rawName, action: 'outline-written', target: 'outlines/' + slug + '.json', status: preview.status });
+        continue;
+      }
+
+      if (baseName === 'data-pack.json' || baseName.endsWith('data-pack.json')) {
+        const pack = JSON.parse(text);
+        const slug = slugify(pack.slug || pack.urlslug || pack.keywordRow?.urlslug || pack.keyword || path.basename(baseName, '.json')) || 'data-pack-template';
+        fs.mkdirSync(join(siteDir, 'outputs'), { recursive: true });
+        fs.writeFileSync(join(siteDir, 'outputs', slug + '.data-pack.json'), JSON.stringify(pack, null, 2), 'utf-8');
+        summary.push({ file: rawName, action: 'data-pack-written', target: 'outputs/' + slug + '.data-pack.json', status: preview.status });
+        continue;
+      }
+
+      if (isDocsImport(baseName, dirName)) {
+        fs.mkdirSync(join(siteDir, 'docs'), { recursive: true });
+        fs.writeFileSync(join(siteDir, 'docs', baseName), text, 'utf-8');
+        summary.push({ file: rawName, action: 'docs-written', target: 'docs/' + baseName, status: preview.status });
+        continue;
+      }
+
+      errors.push({ file: rawName, error: 'No matching importer for this file name.' });
+    } catch (err) {
+      errors.push({ file: file.name || file.relativePath || 'unknown', error: err.message });
+    }
+  }
+
+  return { importedKeywords, skippedDuplicates, filesImported: summary.filter(item => item.action !== 'skipped-duplicate').length, summary, errors };
+}
+
+async function importKeywordsCsvDirect(siteId, csvText) {
+  const siteDir = getSiteDir(siteId);
+  const csvPath = join(siteDir, 'keywords.csv');
+  const existingRows = readKeywordRows(fs.existsSync(csvPath) ? fs.readFileSync(csvPath, 'utf-8') : '');
+  const incomingRows = readKeywordRows(csvText);
+  const existingSlugs = new Set(existingRows.map(r => String(r.urlslug || '').toLowerCase()));
+  const existingKeywords = new Set(existingRows.map(r => String(r.keyword || '').trim().toLowerCase()).filter(Boolean));
+  const merged = [...existingRows];
+  let added = 0;
+  let skipped = 0;
+  for (const row of incomingRows) {
+    const slug = String(row.urlslug || '').toLowerCase();
+    const keyword = String(row.keyword || '').trim().toLowerCase();
+    if (existingSlugs.has(slug) || (keyword && existingKeywords.has(keyword))) {
+      skipped++;
+      continue;
+    }
+    merged.push(row);
+    existingSlugs.add(slug);
+    if (keyword) existingKeywords.add(keyword);
+    added++;
+  }
+  fs.writeFileSync(csvPath, keywordRowsToCsv(merged), 'utf-8');
+  stores.delete(siteId);
+  return { added, skipped, total: incomingRows.length };
+}
+
+function decodeImportFile(file) {
+  if (file.encoding === 'base64') return Buffer.from(String(file.content || ''), 'base64');
+  return Buffer.from(String(file.content ?? file.text ?? ''), 'utf-8');
+}
+
+function readKeywordRows(csvText) {
+  try {
+    return parse(csvText || '', { columns: true, skip_empty_lines: true, trim: true }).map(row => {
+      const out = {};
+      for (const [key, value] of Object.entries(row || {})) {
+        out[String(key).toLowerCase().replace(/[^a-z0-9]/g, '')] = String(value || '').trim();
+      }
+      if (!out.urlslug) out.urlslug = slugify(out.keyword);
+      return out;
+    }).filter(row => row.keyword && !/^\[.*\]$/.test(row.keyword) && !/^field\s*guide$/i.test(row.keyword));
+  } catch {
+    return [];
+  }
+}
+
+function keywordRowsToCsv(rows) {
+  const columns = ['keyword','urlslug','priority','intent','articletype','targetwordcount','secondarykeywords','variants','direction','internallinkingurls','volume','kd','cannibalcheck','pillartarget','blogid'];
+  const lines = [columns.join(',')];
+  for (const row of rows) lines.push(columns.map(col => csvCell(row[col] || '')).join(','));
+  return lines.join('\n') + '\n';
+}
+
+function isBinaryImport(name) {
+  return /\.xlsx$/i.test(name);
+}
+
+async function workbookToCsv(buffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) throw new Error('XLSX has no worksheets');
+  const rows = [];
+  sheet.eachRow({ includeEmpty: false }, row => {
+    rows.push(row.values.slice(1).map(value => csvCell(value == null ? '' : String(value))).join(','));
+  });
+  return rows.join('\n') + '\n';
+}
+
+function csvCell(value) {
+  const out = String(value ?? '');
+  return /[",\n]/.test(out) ? '"' + out.replace(/"/g, '""') + '"' : out;
 }
 
 async function getStore(siteId) {
@@ -645,6 +1253,21 @@ function splitList(value) {
 
 function defaultKeywordsCsv() {
   return 'keyword,urlslug,priority,intent,articletype,targetwordcount,secondarykeywords,variants,direction,internallinkingurls,volume,kd,cannibalcheck,pillartarget,blogid\n';
+}
+
+function defaultProjectInstructions(input = {}) {
+  const siteName = input.siteName || input.siteId || 'this site';
+  const language = input.language || 'en';
+  const positioning = input.positioning || '';
+  return [
+    `# Site Project Instructions 闂?${siteName}`,
+    '',
+    `Write reader-facing content in ${language}. Configuration notes may be written in Chinese or any internal working language.`,
+    positioning ? `Site positioning: ${positioning}` : 'Site positioning: [fill in the audience, problem, and conversion goal].',
+    '',
+    'Use this file for site-specific writing rules that should behave like Claude Project instructions: brand voice, claim boundaries, product-line rules, EEAT requirements, internal-link rules, and output requirements.',
+    '',
+  ].join('\n');
 }
 
 function makeDefaultSite(input, siteId) {
@@ -735,11 +1358,13 @@ function makeDefaultStyleReference() {
 
 function siteFileRole(name) {
   return {
-    'site.json': '网站基础资料：站点 ID、域名、语言、定位、受众、必须表达、禁止表达、写作风格。',
-    'knowledge.json': '知识库：术语、事实、FAQ、异议、卖点。生成文章时作为事实来源。',
-    'author.json': '作者资料：姓名、职位、背景、写作口吻、故事素材。用于 E-E-A-T 和作者模块。',
-    'links.json': '内链库：支柱页、博客页、产品页。系统会按关键词匹配并插入文章。',
-    'keywords.csv': '关键词规划表：每一行是一篇文章任务，包含关键词、slug、类型、字数、方向、内链。',
+    'site.json': 'Core website variables used for brand positioning, domain, language, audience, tone and expression rules.',
+    'knowledge.json': 'Category knowledge base used for terms, facts, FAQ, buyer concerns and compliance boundaries.',
+    'author.json': 'Author identity, style, background and storyBank used for publish-ready first-hand experience.',
+    'links.json': 'Internal link library used to choose topic hubs, product/category pages and related posts.',
+    'keywords.csv': 'Keyword task table with article type, slug, target word count, direction and link targets.',
+    'style-reference.json': 'HTML style brief used to guide article structure, components and brand-matched formatting.',
+    'project-instructions.md': 'Site-level project instructions for writing workflow, SOP, compliance and output format.',
   }[name] || '';
 }
 
@@ -1081,16 +1706,16 @@ function buildPublishChecklist(html, focusKeyword, metaDescription, schema) {
   const h1 = stripTags((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '');
   const h1Done = focusKeyword ? h1.toLowerCase().includes(String(focusKeyword).toLowerCase()) : Boolean(h1);
   const linkCount = (html.match(/<a\b[^>]*href=/gi) || []).length;
-  const authorDone = /author|byline|署名|作者/i.test(html);
+  const authorDone = /author|byline|about this article|written by/i.test(html);
   const metaDone = Boolean(metaDescription) && metaDescription.length <= 155;
   const schemaDone = Boolean(schema && Object.keys(schema).length);
 
   return [
-    { item: 'H1 包含核心关键词', done: h1Done },
-    { item: '内链数量 2-5 个', done: linkCount >= 2 && linkCount <= 5 },
-    { item: '作者署名模块存在', done: authorDone },
-    { item: 'Meta Description 不超过155字符', done: metaDone },
-    { item: 'Schema JSON-LD 已准备', done: schemaDone },
+    { item: 'H1 includes the focus keyword', done: h1Done },
+    { item: 'Internal link count is 2-5', done: linkCount >= 2 && linkCount <= 5 },
+    { item: 'Author/byline module exists', done: authorDone },
+    { item: 'Meta Description is 155 characters or less', done: metaDone },
+    { item: 'Schema JSON-LD is prepared', done: schemaDone },
   ];
 }
 
