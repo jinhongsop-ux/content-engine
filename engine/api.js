@@ -569,6 +569,68 @@ router.get('/sites/:siteId/publish-pack/:slug', async (req, res) => {
   }
 });
 
+
+router.post('/translate-preview', async (req, res) => {
+  try {
+    const { content = '', mode = 'html', apiKey, endpoint, model, maxTokens, timeoutMs, provider } = req.body || {};
+    if (!String(content || '').trim()) return res.json({ translation: '' });
+    const translation = await translatePreviewContent(String(content), mode, { apiKey, endpoint, model, maxTokens, timeoutMs, provider });
+    res.json({ translation });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/publish-wordpress/:slug', async (req, res) => {
+  try {
+    const result = await publishToWordPress(req.params.siteId, req.params.slug, req.body || {});
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/sites/:siteId/image-plan/:slug', async (req, res) => {
+  try {
+    res.json(await getImagePlan(req.params.siteId, req.params.slug));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/image-plan/:slug', async (req, res) => {
+  try {
+    res.json({ ok: true, imagePlan: saveImagePlan(req.params.siteId, req.params.slug, req.body?.imagePlan || req.body) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/image-plan/:slug/upload', async (req, res) => {
+  try {
+    res.json({ ok: true, imagePlan: saveImageSlotUpload(req.params.siteId, req.params.slug, req.body || {}) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/image-plan/:slug/alt', async (req, res) => {
+  try {
+    const imagePlan = await generateImageAltForSlot(req.params.siteId, req.params.slug, req.body || {});
+    res.json({ ok: true, imagePlan });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/image-plan/:slug/insert', async (req, res) => {
+  try {
+    res.json({ ok: true, ...insertImagesIntoArticle(req.params.siteId, req.params.slug, req.body?.imagePlan || null) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.get('/sites/:siteId/outlines/:slug', (req, res) => {
   try {
     const siteDir = getSiteDir(req.params.siteId);
@@ -626,6 +688,19 @@ router.get('/sites/:siteId/articles/:slug', (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${req.params.slug}.html"`);
   }
   res.send(fs.readFileSync(p, 'utf-8'));
+});
+
+router.get('/sites/:siteId/article-images/:slug/:file', (req, res) => {
+  try {
+    const siteDir = getSiteDir(req.params.siteId);
+    const fileName = path.basename(req.params.file);
+    const slug = sanitizeFilePart(req.params.slug);
+    const p = join(siteDir, 'outputs', 'images', slug, fileName);
+    if (!fs.existsSync(p)) return res.status(404).json({ error: 'Image not found' });
+    res.sendFile(p);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 router.get('/sites/:siteId/export', (req, res) => {
@@ -1288,6 +1363,14 @@ function makeDefaultSite(input, siteId) {
       avoidStyle: [],
     },
     internalLinkPriority: ['pillarPages', 'categoryPages', 'productPages', 'blogPosts'],
+    wordpress: {
+      endpoint: input.domain || '',
+      username: '',
+      appPassword: '',
+      defaultStatus: 'draft',
+      categories: [],
+      tags: [],
+    },
   };
 }
 
@@ -1391,7 +1474,7 @@ async function generateArticleFromOutline(ctx, row, outline, apiConfig = {}) {
     throw new Error(genResult.error || 'Generation incomplete - output may be truncated');
   }
 
-  const html = clean(genResult.html);
+  const html = normalizeArticleLinks(clean(genResult.html), ctx, row);
   const qa = validate(html, genResult.meta, ctx, row);
   const dataPack = {
     slug: row.urlslug,
@@ -1413,7 +1496,33 @@ async function generateArticleFromOutline(ctx, row, outline, apiConfig = {}) {
   return { html, meta: genResult.meta, qa, dataPack };
 }
 
+function normalizeArticleLinks(html, ctx = {}, row = {}) {
+  const domain = String(ctx.site?.domain || '').trim().replace(/\/+$/, '');
+  if (!html || !domain) return html;
+  return html.replace(/\shref=(["'])([^"']+)\1/gi, (match, quote, rawHref) => {
+    const href = String(rawHref || '').trim();
+    if (!href || /^(https?:|mailto:|tel:|#)/i.test(href)) return match;
+    if (/^file:\/\//i.test(href)) {
+      const parsed = href.replace(/^file:\/\/\/?[A-Za-z]:?/i, '').replace(/\\/g, '/');
+      return ` href=${quote}${domain}${ensureLeadingSlash(parsed)}${quote}`;
+    }
+    const path = ensureLeadingSlash(href);
+    return ` href=${quote}${domain}${path}${quote}`;
+  });
+}
+
+function ensureLeadingSlash(value = '') {
+  let pathValue = String(value || '').trim().replace(/\\/g, '/');
+  pathValue = pathValue.replace(/^[A-Za-z]:/i, '');
+  if (!pathValue.startsWith('/')) pathValue = '/' + pathValue;
+  if (!pathValue.endsWith('/') && !/\.[a-z0-9]+(?:[?#].*)?$/i.test(pathValue) && !/[?#]/.test(pathValue)) pathValue += '/';
+  return pathValue;
+}
+
 async function callTextModel(systemPrompt, userPrompt, cfg = {}) {
+  const wantsGemini = cfg.provider === 'gemini' || String(cfg.endpoint || '').includes('generativelanguage.googleapis.com') || /^gemini-/i.test(String(cfg.model || ''));
+  if (wantsGemini) return callGeminiTextModel(systemPrompt, userPrompt, cfg);
+
   const apiKey = cfg.apiKey || process.env.ANTHROPIC_API_KEY || process.env.API_KEY;
   if (!apiKey) throw new Error('No API key found. Set ANTHROPIC_API_KEY or enter a key in the UI.');
 
@@ -1465,6 +1574,75 @@ async function callTextModel(systemPrompt, userPrompt, cfg = {}) {
     '';
   if (!text.trim()) throw new Error('Empty outline response from API');
   return text;
+}
+
+function buildGeminiEndpoint(model, endpoint = '') {
+  if (endpoint) return endpoint;
+  const safeModel = encodeURIComponent(model || 'gemini-3.1-flash-lite');
+  return `https://generativelanguage.googleapis.com/v1beta/models/${safeModel}:generateContent`;
+}
+
+async function callGeminiTextModel(systemPrompt, userPrompt, cfg = {}) {
+  const apiKey = cfg.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error('No Gemini API key found. Fill Gemini API Key in Model Settings.');
+  const model = cfg.model || 'gemini-3.1-flash-lite';
+  const endpoint = buildGeminiEndpoint(model, cfg.endpoint || '');
+  const body = {
+    contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+    generationConfig: {
+      maxOutputTokens: Number(cfg.maxTokens) || 4096,
+      temperature: Number.isFinite(Number(cfg.temperature)) ? Number(cfg.temperature) : 0.2,
+    },
+  };
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Gemini API ${response.status}: ${errText.slice(0, 500)}`);
+  }
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || data.text || '';
+  if (!text.trim()) throw new Error('Empty Gemini response');
+  return text;
+}
+
+async function callGeminiVisionJson(prompt, imagePath, mimeType, cfg = {}) {
+  const apiKey = cfg.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error('No Gemini API key found. Fill Gemini API Key in Model Settings.');
+  const model = cfg.model || 'gemini-3.1-flash-lite';
+  const endpoint = buildGeminiEndpoint(model, cfg.endpoint || '');
+  const parts = [{ text: prompt }];
+  if (imagePath && fs.existsSync(imagePath)) {
+    parts.push({ inlineData: { mimeType: mimeType || mimeFromFileName(imagePath), data: fs.readFileSync(imagePath).toString('base64') } });
+  }
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: { maxOutputTokens: Number(cfg.maxTokens) || 1200, temperature: 0.2 },
+    }),
+  });
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Gemini API ${response.status}: ${errText.slice(0, 500)}`);
+  }
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '';
+  return parseJsonFromText(text);
+}
+
+function mimeFromFileName(fileName = '') {
+  const ext = path.extname(fileName).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.heic') return 'image/heic';
+  if (ext === '.heif') return 'image/heif';
+  if (ext === '.gif') return 'image/gif';
+  return 'image/jpeg';
 }
 
 function parseJsonFromText(text) {
@@ -1618,6 +1796,425 @@ async function buildPublishPack(siteId, slug) {
     focusKeyword,
     publishChecklist: checklist,
   };
+}
+
+
+async function translatePreviewContent(content, mode = 'html', apiConfig = {}) {
+  const trimmed = String(content || '').trim();
+  if (!trimmed) return '';
+  const systemPrompt = [
+    'You are a precise Chinese localization assistant for an internal content production UI.',
+    'Translate user-facing article preview content into Simplified Chinese for review only.',
+    'Do not add analysis, notes, markdown fences, or explanations.',
+    'Preserve all HTML tags, attributes, class names, href values, ids, data attributes, JSON-like field names, and code-like tokens exactly.',
+    'Translate visible human-readable text only. Keep brand names, URLs, slugs, schema terms, field keys, and technical identifiers in English.',
+    'The translation is one-way for preview; the underlying source remains English.'
+  ].join('\n');
+  const userPrompt = mode === 'outline'
+    ? `Translate this outline preview HTML into Simplified Chinese while preserving all HTML structure and attributes:\n\n${trimmed}`
+    : `Translate this article preview HTML into Simplified Chinese while preserving all HTML structure, links, classes, and attributes:\n\n${trimmed}`;
+  return callTextModel(systemPrompt, userPrompt, {
+    maxTokens: Number(apiConfig.maxTokens) || 12000,
+    timeoutMs: Number(apiConfig.timeoutMs) || 240000,
+    ...apiConfig,
+  });
+}
+
+async function publishToWordPress(siteId, slug, opts = {}) {
+  const ctx = await loadSiteContext(siteId);
+  const wp = ctx.site.wordpress || {};
+  const endpoint = normalizeWpEndpoint(opts.endpoint || wp.endpoint || wp.siteUrl || ctx.site.domain);
+  const username = opts.username || wp.username;
+  const appPassword = opts.appPassword || wp.appPassword || wp.applicationPassword;
+  if (!endpoint) throw new Error('WordPress endpoint is missing. Fill site.wordpress.endpoint or site domain.');
+  if (!username || !appPassword) throw new Error('WordPress username and application password are required.');
+
+  const pack = await buildPublishPack(siteId, slug);
+  const store = await getStore(siteId);
+  const row = store.getOne(slug) || {};
+  const seoTitle = opts.seoTitle || pack.seoTitles?.[0] || row.keyword || slug;
+  const metaDescription = opts.metaDescription || pack.metaDescription || '';
+  const status = opts.status || wp.defaultStatus || 'draft';
+  const postSlug = opts.slug || row.urlslug || slug;
+  const title = opts.title || seoTitle || row.keyword || postSlug;
+  const content = pack.html;
+
+  const body = {
+    title,
+    content,
+    slug: postSlug,
+    status,
+    excerpt: metaDescription,
+    meta: buildWordPressSeoMeta({
+      seoTitle,
+      metaDescription,
+      focusKeyword: pack.focusKeyword || row.keyword || '',
+      schema: pack.schema,
+      sourceSlug: slug,
+    }),
+  };
+  if (opts.categories) body.categories = Array.isArray(opts.categories) ? opts.categories : String(opts.categories).split(',').map(Number).filter(Boolean);
+  if (opts.tags) body.tags = Array.isArray(opts.tags) ? opts.tags : String(opts.tags).split(',').map(Number).filter(Boolean);
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Basic ${Buffer.from(`${username}:${String(appPassword).replace(/\s+/g, '')}`).toString('base64')}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(async () => ({ raw: await response.text().catch(() => '') }));
+  if (!response.ok) {
+    const message = data?.message || data?.raw || `HTTP ${response.status}`;
+    throw new Error(`WordPress publish failed: ${message}`);
+  }
+  return {
+    wpPostId: data.id,
+    status: data.status,
+    link: data.link,
+    editLink: data.guid?.rendered || '',
+    slug: data.slug || postSlug,
+    seoTitle,
+    metaDescription,
+  };
+}
+
+function normalizeWpEndpoint(value = '') {
+  const raw = String(value || '').trim().replace(/\/+$/, '');
+  if (!raw) return '';
+  if (/\/wp-json\/wp\/v2\/posts$/i.test(raw)) return raw;
+  if (/\/wp-json\/wp\/v2$/i.test(raw)) return raw + '/posts';
+  if (/\/wp-json$/i.test(raw)) return raw + '/wp/v2/posts';
+  return raw + '/wp-json/wp/v2/posts';
+}
+
+function buildWordPressSeoMeta({ seoTitle, metaDescription, focusKeyword, schema, sourceSlug }) {
+  return {
+    _content_engine_slug: sourceSlug || '',
+    _content_engine_schema_json: schema && Object.keys(schema).length ? JSON.stringify(schema) : '',
+    _yoast_wpseo_title: seoTitle || '',
+    _yoast_wpseo_metadesc: metaDescription || '',
+    _yoast_wpseo_focuskw: focusKeyword || '',
+    rank_math_title: seoTitle || '',
+    rank_math_description: metaDescription || '',
+    rank_math_focus_keyword: focusKeyword || '',
+    _aioseo_title: seoTitle || '',
+    _aioseo_description: metaDescription || '',
+  };
+}
+
+
+function imagePlanPath(siteDir, slug) {
+  return join(siteDir, 'outputs', `${slug}.images.json`);
+}
+
+function sanitizeFilePart(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120) || 'file';
+}
+
+async function getImagePlan(siteId, slug) {
+  const siteDir = getSiteDir(siteId);
+  const safeSlug = sanitizeFilePart(slug);
+  const planPath = imagePlanPath(siteDir, safeSlug);
+  if (fs.existsSync(planPath)) {
+    const existing = readJsonFile(planPath);
+    if (existing) return { imagePlan: normalizeImagePlan(existing, siteId, safeSlug), isCustom: true };
+  }
+  const imagePlan = await buildDefaultImagePlan(siteId, safeSlug);
+  fs.writeFileSync(planPath, JSON.stringify(imagePlan, null, 2), 'utf-8');
+  return { imagePlan, isCustom: false };
+}
+
+async function buildDefaultImagePlan(siteId, slug) {
+  const siteDir = getSiteDir(siteId);
+  const htmlPath = join(siteDir, 'outputs', `${slug}.html`);
+  if (!fs.existsSync(htmlPath)) throw new Error('Article not found. Generate the article before creating an image plan.');
+  const html = fs.readFileSync(htmlPath, 'utf-8');
+  const store = await getStore(siteId);
+  const row = store.getOne(slug) || {};
+  const site = readJsonFile(join(siteDir, 'site.json')) || {};
+  const styleRef = readJsonFile(join(siteDir, 'style-reference.json')) || {};
+  const keyword = row.keyword || stripTags((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '') || slug;
+  const wordCount = countArticleWords(html);
+  const headings = extractArticleHeadings(html);
+  const bodyImageCount = Math.min(8, Math.max(2, Math.ceil(Math.max(wordCount, Number(row.targetwordcount) || 0, 1) / 1200) * 2));
+  const styleBrief = summarizeImageStyle(styleRef);
+  const slots = [makeImageSlot({
+    id: 'cover',
+    type: 'cover',
+    label: 'Cover image',
+    keyword,
+    articleType: row.articletype,
+    recommendedPosition: 'Before H1 / article opening',
+    heading: '',
+    scene: `${keyword} hero image with website-matched editorial styling`,
+    styleBrief,
+    index: 0,
+  })];
+  for (let i = 0; i < bodyImageCount; i++) {
+    const heading = headings[i % Math.max(headings.length, 1)] || keyword;
+    slots.push(makeImageSlot({
+      id: `img-${i + 1}`,
+      type: 'inline',
+      label: `Inline image ${i + 1}`,
+      keyword,
+      articleType: row.articletype,
+      recommendedPosition: heading ? `After section: ${heading}` : `After body paragraph ${i + 1}`,
+      heading,
+      scene: buildImageScene(keyword, heading, i),
+      styleBrief,
+      index: i + 1,
+    }));
+  }
+  return normalizeImagePlan({
+    slug,
+    keyword,
+    siteId,
+    siteName: site.siteName || site.brandName || siteId,
+    wordCount,
+    rule: 'Default: 1 cover image plus 2 in-article images per 1200 words. Under 1200 words still gets at least 2 body images.',
+    slots,
+    updatedAt: new Date().toISOString(),
+  }, siteId, slug);
+}
+
+function makeImageSlot({ id, type, label, keyword, articleType, recommendedPosition, heading, scene, styleBrief, index }) {
+  const prompt = [
+    `Create an editorial ${type === 'cover' ? 'cover' : 'in-article'} image for a blog article about "${keyword}".`,
+    heading ? `The image should visually support the section: "${heading}".` : '',
+    `Scene: ${scene}.`,
+    `Use the site's visual language: ${styleBrief || 'clean, brand-matched, editorial, publication-ready'}.`,
+    'No text overlays, no logos, no watermark, no distorted hands, no medical claims, no exaggerated fantasy glow.',
+    'Leave comfortable negative space and make it suitable for a premium ecommerce blog layout.',
+  ].filter(Boolean).join(' ');
+  return {
+    id,
+    type,
+    label,
+    recommendedPosition,
+    insertAfterHeading: type === 'inline' ? heading : '',
+    scene,
+    prompt,
+    altText: makeAltText(keyword, scene, index),
+    caption: '',
+    imageFile: '',
+    imageUrl: '',
+    status: 'pending',
+    articleType: articleType || '',
+  };
+}
+
+function buildImageScene(keyword, heading, index) {
+  const lower = `${keyword} ${heading}`.toLowerCase();
+  if (/gift|birthday|jewelry|bracelet|ring|necklace|pendant/.test(lower)) return `a tasteful product-and-lifestyle composition showing the gift context for ${keyword}`;
+  if (/sun|fade|white|color|formed|brazil|uruguay|geode|cluster|raw/.test(lower)) return `a close-up educational gemstone composition that explains ${heading || keyword} with natural amethyst specimens`;
+  if (/feng shui|chakra|sleep|anxiety|healing|meaning|spiritual/.test(lower)) return `a calm lifestyle scene showing amethyst placed naturally in a home setting related to ${heading || keyword}`;
+  return `a useful editorial visual that clarifies the reader decision around ${heading || keyword}`;
+}
+
+function makeAltText(keyword, scene, index = 0) {
+  const base = String(scene || keyword || '').replace(/\s+/g, ' ').trim();
+  const text = index === 0 ? `${keyword} article cover image` : `${keyword} - ${base}`;
+  return text.replace(/["<>]/g, '').slice(0, 150);
+}
+
+function summarizeImageStyle(styleRef = {}) {
+  const parts = [];
+  for (const key of ['styleBrief', 'styleReference', 'visualStyle', 'designSystem', 'referenceHtml']) {
+    if (typeof styleRef[key] === 'string' && styleRef[key].trim()) parts.push(styleRef[key].trim());
+  }
+  if (!parts.length && typeof styleRef === 'object') {
+    for (const value of Object.values(styleRef)) {
+      if (typeof value === 'string' && value.trim()) parts.push(value.trim());
+    }
+  }
+  return stripTags(parts.join('\n')).slice(0, 900);
+}
+
+function countArticleWords(html) {
+  const text = stripTags(html).replace(/[\u4e00-\u9fff]/g, ' x ');
+  return (text.match(/[A-Za-z0-9][A-Za-z0-9'?-]*/g) || []).length;
+}
+
+function extractArticleHeadings(html) {
+  const headings = [];
+  const re = /<h2[^>]*>([\s\S]*?)<\/h2>/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const heading = stripTags(m[1]);
+    if (heading) headings.push(heading);
+  }
+  return headings.slice(0, 12);
+}
+
+function normalizeImagePlan(plan, siteId, slug) {
+  const safeSlug = sanitizeFilePart(plan.slug || slug);
+  const slots = Array.isArray(plan.slots) ? plan.slots : [];
+  return {
+    slug: safeSlug,
+    keyword: plan.keyword || safeSlug,
+    siteId: plan.siteId || siteId,
+    siteName: plan.siteName || siteId,
+    wordCount: Number(plan.wordCount || 0),
+    rule: plan.rule || 'Default: 1 cover image plus 2 in-article images per 1200 words.',
+    slots: slots.map((slot, index) => ({
+      id: sanitizeFilePart(slot.id || (index === 0 ? 'cover' : `img-${index}`)),
+      type: slot.type === 'cover' || index === 0 ? 'cover' : 'inline',
+      label: slot.label || (index === 0 ? 'Cover image' : `Inline image ${index}`),
+      recommendedPosition: slot.recommendedPosition || '',
+      insertAfterHeading: slot.insertAfterHeading || '',
+      scene: slot.scene || '',
+      prompt: slot.prompt || '',
+      altText: slot.altText || makeAltText(plan.keyword || safeSlug, slot.scene || '', index),
+      caption: slot.caption || '',
+      imageFile: slot.imageFile || '',
+      imageUrl: slot.imageUrl || (slot.imageFile ? `/api/sites/${siteId}/article-images/${safeSlug}/${path.basename(slot.imageFile)}` : ''),
+      status: slot.status || (slot.imageFile ? 'uploaded' : 'pending'),
+      articleType: slot.articleType || '',
+    })),
+    updatedAt: plan.updatedAt || new Date().toISOString(),
+  };
+}
+
+function saveImagePlan(siteId, slug, rawPlan) {
+  const siteDir = getSiteDir(siteId);
+  const safeSlug = sanitizeFilePart(slug);
+  const plan = normalizeImagePlan(rawPlan || {}, siteId, safeSlug);
+  plan.updatedAt = new Date().toISOString();
+  fs.writeFileSync(imagePlanPath(siteDir, safeSlug), JSON.stringify(plan, null, 2), 'utf-8');
+  return plan;
+}
+
+function saveImageSlotUpload(siteId, slug, payload = {}) {
+  const siteDir = getSiteDir(siteId);
+  const safeSlug = sanitizeFilePart(slug);
+  const plan = readJsonFile(imagePlanPath(siteDir, safeSlug));
+  if (!plan) throw new Error('Image plan not found. Open image config first.');
+  const slotId = sanitizeFilePart(payload.slotId || 'image');
+  const slot = (plan.slots || []).find(item => item.id === slotId);
+  if (!slot) throw new Error(`Image slot not found: ${slotId}`);
+  const content = String(payload.content || '').replace(/^data:[^;]+;base64,/, '');
+  if (!content) throw new Error('Uploaded image content is empty.');
+  const original = sanitizeFilePart(payload.fileName || `${slotId}.jpg`);
+  const ext = path.extname(original) || mimeToExt(payload.mime) || '.jpg';
+  const fileName = `${slotId}-${Date.now()}${ext}`;
+  const dir = join(siteDir, 'outputs', 'images', safeSlug);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(join(dir, fileName), Buffer.from(content, 'base64'));
+  slot.imageFile = fileName;
+  slot.imageUrl = `/api/sites/${siteId}/article-images/${safeSlug}/${fileName}`;
+  slot.status = 'uploaded';
+  if (!slot.altText) slot.altText = makeAltText(plan.keyword || safeSlug, slot.scene || slot.label || '', plan.slots.indexOf(slot));
+  plan.updatedAt = new Date().toISOString();
+  return saveImagePlan(siteId, safeSlug, plan);
+}
+
+async function generateImageAltForSlot(siteId, slug, payload = {}) {
+  const siteDir = getSiteDir(siteId);
+  const safeSlug = sanitizeFilePart(slug);
+  const plan = normalizeImagePlan(payload.imagePlan || readJsonFile(imagePlanPath(siteDir, safeSlug)) || {}, siteId, safeSlug);
+  const slotId = String(payload.slotId || '');
+  const slot = plan.slots.find(item => item.id === slotId);
+  if (!slot) throw new Error(`Image slot not found: ${slotId}`);
+  const imagePath = slot.imageFile ? join(siteDir, 'outputs', 'images', safeSlug, path.basename(slot.imageFile)) : '';
+  const prompt = `You generate publishing-ready image metadata for an ecommerce SEO article. Return only valid JSON with keys altText and caption.\n\nRules:\n- altText must be English, natural, specific, 8-18 words, under 150 characters.\n- Do not keyword stuff. Mention the focus keyword only if it is visually relevant.\n- caption should be optional supporting text under 140 characters.\n- If an image is provided, describe what is actually visible. If no image is provided, infer from the requested scene conservatively.\n\nArticle keyword: ${plan.keyword || safeSlug}\nImage slot: ${slot.label || slot.id}\nRecommended scene: ${slot.scene || ''}\nExisting prompt: ${slot.prompt || ''}\nRecommended position: ${slot.recommendedPosition || ''}`;
+  const result = await callGeminiVisionJson(prompt, imagePath, slot.mime || mimeFromFileName(slot.imageFile || ''), payload);
+  slot.altText = String(result.altText || result.alt || slot.altText || makeAltText(plan.keyword || safeSlug, slot.scene || slot.label || '', plan.slots.indexOf(slot))).slice(0, 150);
+  if (result.caption) slot.caption = String(result.caption).slice(0, 180);
+  plan.updatedAt = new Date().toISOString();
+  return saveImagePlan(siteId, safeSlug, plan);
+}
+
+function mimeToExt(mime = '') {
+  if (/png/i.test(mime)) return '.png';
+  if (/webp/i.test(mime)) return '.webp';
+  if (/gif/i.test(mime)) return '.gif';
+  return '.jpg';
+}
+
+function insertImagesIntoArticle(siteId, slug, suppliedPlan = null) {
+  const siteDir = getSiteDir(siteId);
+  const safeSlug = sanitizeFilePart(slug);
+  const htmlPath = join(siteDir, 'outputs', `${safeSlug}.html`);
+  if (!fs.existsSync(htmlPath)) throw new Error('Article not found');
+  const plan = normalizeImagePlan(suppliedPlan || readJsonFile(imagePlanPath(siteDir, safeSlug)) || {}, siteId, safeSlug);
+  const uploadSlots = plan.slots.filter(slot => slot.imageFile || slot.imageUrl);
+  if (!uploadSlots.length) throw new Error('No uploaded images to insert.');
+  let html = fs.readFileSync(htmlPath, 'utf-8');
+  html = removeExistingImageFigures(html, uploadSlots.map(slot => slot.id));
+  for (const slot of uploadSlots) {
+    const figure = buildImageFigure(siteId, safeSlug, slot);
+    if (slot.type === 'cover') {
+      html = insertCoverFigure(html, figure);
+    } else {
+      html = insertInlineFigure(html, figure, slot.insertAfterHeading);
+    }
+    slot.status = 'inserted';
+  }
+  fs.writeFileSync(htmlPath, html, 'utf-8');
+  saveImagePlan(siteId, safeSlug, plan);
+  return { inserted: uploadSlots.length, html };
+}
+
+function buildImageFigure(siteId, slug, slot) {
+  const src = slot.imageUrl || `/api/sites/${siteId}/article-images/${slug}/${path.basename(slot.imageFile || '')}`;
+  const alt = escapeHtmlAttr(slot.altText || slot.scene || slot.label || 'Article image');
+  const caption = slot.caption ? `\n  <figcaption>${escapeHtml(slot.caption)}</figcaption>` : '';
+  const cls = slot.type === 'cover' ? 'content-engine-image content-engine-cover' : 'content-engine-image content-engine-inline';
+  return `<figure class="${cls}" data-ce-image-slot="${escapeHtmlAttr(slot.id)}">\n  <img src="${escapeHtmlAttr(src)}" alt="${alt}" loading="lazy">${caption}\n</figure>`;
+}
+
+function removeExistingImageFigures(html, slotIds) {
+  let next = html;
+  for (const id of slotIds) {
+    const re = new RegExp(`<figure\\b[^>]*data-ce-image-slot=["']${escapeRegExp(id)}["'][\\s\\S]*?<\\/figure>\\s*`, 'gi');
+    next = next.replace(re, '');
+  }
+  return next;
+}
+
+function insertCoverFigure(html, figure) {
+  if (/<article\b[^>]*>/i.test(html)) return html.replace(/(<article\b[^>]*>)/i, `$1\n${figure}\n`);
+  if (/<h1\b/i.test(html)) return html.replace(/(<h1\b)/i, `${figure}\n$1`);
+  return `${figure}\n${html}`;
+}
+
+function insertInlineFigure(html, figure, heading = '') {
+  const cleanHeading = stripTags(heading).toLowerCase();
+  if (cleanHeading) {
+    const h2Re = /<h2\b[^>]*>[\s\S]*?<\/h2>/gi;
+    let match;
+    while ((match = h2Re.exec(html))) {
+      if (stripTags(match[0]).toLowerCase() === cleanHeading) {
+        const insertAt = match.index + match[0].length;
+        return html.slice(0, insertAt) + `\n${figure}\n` + html.slice(insertAt);
+      }
+    }
+  }
+  const paragraphs = [...html.matchAll(/<\/p>/gi)];
+  if (paragraphs.length) {
+    const idx = Math.min(paragraphs.length - 1, Math.max(1, Math.floor(paragraphs.length / 2)));
+    const insertAt = paragraphs[idx].index + paragraphs[idx][0].length;
+    return html.slice(0, insertAt) + `\n${figure}\n` + html.slice(insertAt);
+  }
+  return `${html}\n${figure}`;
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function escapeHtmlAttr(value) {
+  return escapeHtml(value).replace(/"/g, '&quot;');
 }
 
 async function readPublishMeta(siteDir, slug) {

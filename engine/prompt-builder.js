@@ -10,7 +10,7 @@ export function buildArticlePrompt(ctx, task, outline = null) {
   const typeConfig = articleTypes[typeKey] || articleTypes['buying-guide'];
   const [minWords, maxWords] = typeConfig.wordRange || [900, 1400];
   const manualLinks = [task.pillartarget, task.internallinkingurls].filter(Boolean).join(',');
-  const relevantLinks = matchInternalLinks(linkIndex, task.keyword, manualLinks);
+  const relevantLinks = canonicalizeLinks(matchInternalLinks(linkIndex, task.keyword, manualLinks), site);
   const brandName = site.brandName || site.siteName || site.siteId;
   const reviewDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -36,6 +36,7 @@ export function buildArticlePrompt(ctx, task, outline = null) {
       outputMode: 'article',
     }),
     userPrompt: buildUserPrompt({
+      site,
       task,
       typeKey,
       typeConfig,
@@ -56,7 +57,7 @@ export function buildOutlinePrompt(ctx, task) {
   const typeConfig = articleTypes[typeKey] || articleTypes['buying-guide'];
   const [minWords, maxWords] = typeConfig.wordRange || [900, 1400];
   const manualLinks = [task.pillartarget, task.internallinkingurls].filter(Boolean).join(',');
-  const relevantLinks = matchInternalLinks(linkIndex, task.keyword, manualLinks);
+  const relevantLinks = canonicalizeLinks(matchInternalLinks(linkIndex, task.keyword, manualLinks), site);
   const brandName = site.brandName || site.siteName || site.siteId;
   const systemPrompt = buildSystemPrompt({
     site,
@@ -72,7 +73,7 @@ export function buildOutlinePrompt(ctx, task) {
     projectInstructions: ctx.projectInstructions,
     outputMode: 'outline',
   });
-  const userPrompt = buildOutlineUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, maxWords });
+  const userPrompt = buildOutlineUserPrompt({ site, task, typeKey, typeConfig, relevantLinks, minWords, maxWords });
   return { systemPrompt, userPrompt, typeKey, typeConfig, relevantLinks };
 }
 
@@ -140,17 +141,18 @@ ${summarize(knowledge, 5000)}`,
 ${promptSections.observationalClaim || ''}
 Do not invent statistics, certifications, tests, prices, partnerships, guarantees, reviews, or personal experiences.
 Use the author's Story bank as approved first-hand source material. When the outline, project instructions, or article topic calls for first-hand experience, choose the most relevant story-bank detail and rewrite it naturally as publish-ready article prose in the author's voice.
-Do not output editor placeholders or request markers such as "【需要一手经验】", "[needs first-hand experience]", "E-E-A-T marker", "TODO", or "insert anecdote here".
+Do not output editor placeholders or request markers such as "needs first-hand experience", "E-E-A-T marker", "TODO", or "insert anecdote here".
 If no story-bank detail fits the exact point, write a more general evidence-aware sentence instead of leaving a placeholder.`,
 
     `# Internal Links
 ${promptSections.internalLinkRule || ''}
-Use <a href="URL">anchor text</a> directly in the article body. Do not list links separately.`,
+Use <a href="URL">anchor text</a> directly in the article body. Do not list links separately.
+Use only full canonical site URLs. Never output root-relative links like href="/path/" and never output file:// links.`,
 
     `# HTML Style Reference and Component Rules
 ${styleReference && Object.keys(styleReference).length ? `
 Use this site-level style reference when choosing article HTML structure, class names, and content blocks:
-${styleReference.styleBrief ? summarize(styleReference.styleBrief, 5000) : summarize(styleReference, 5000)}
+${styleReference.styleBrief ? summarize(styleReference.styleBrief, 12000) : summarize(styleReference, 12000)}
 
 ${promptSections.styleReferenceRule || ''}
 ` : 'No site style-reference.json is available. Use clean semantic article HTML and avoid full-page markup.'}
@@ -158,13 +160,16 @@ ${promptSections.styleReferenceRule || ''}
 The article must not look like plain unstyled text. Use publish-ready CMS-embeddable semantic HTML:
 - Use the configured article root class when available, such as <article class="...">.
 - Use section wrappers with site-specific classes for major blocks.
+- Treat the style reference as two things: operating instructions plus reference HTML. Study the reference HTML's component structure, class names, spacing rhythm, FAQ pattern, CTA pattern, table/list treatment, and visual hierarchy, then output article-body HTML that follows that same style system.
+- Reuse site-specific class names from the reference HTML when relevant. Do not invent unrelated generic class systems if reference classes exist.
 - Use <blockquote> for sourced or reflective quotes when appropriate.
 - Use <aside> or a site-specific note/warning class for care notes, cautions, or key takeaways.
 - Use <ul>, <ol>, and <table> when they improve scanning.
 - Use FAQ accordion markup with <details><summary>Question</summary><p>Answer</p></details> when the article includes FAQ content.
 - Use CTA and related-link blocks with classes from the style reference when available.
 - Do not emit <style>, <script>, <head>, <body>, nav, footer, or full-page layout markup.
-- Do not use inline CSS unless the style reference explicitly says to do so.`,
+- Do not use inline CSS unless the style reference explicitly says to do so.
+- Do not copy the whole reference page. Extract and adapt only the article components and content blocks.`,
 
     `# ${outputMode === 'article' ? 'Article' : 'Outline'} Requirements
 Target length: ${minWords}-${maxWords} words.
@@ -222,7 +227,7 @@ Return this shape exactly:
   ].join('\n\n---\n\n');
 }
 
-function buildUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, maxWords, outline }) {
+function buildUserPrompt({ site, task, typeKey, typeConfig, relevantLinks, minWords, maxWords, outline }) {
   const linkBlock = relevantLinks.length
     ? relevantLinks.map(link => `- <a href="${link.url}">${link.anchor}</a> (${link.topic || link.type})`).join('\n')
     : '- No required internal links were matched. Use none unless supplied in the task.';
@@ -231,6 +236,7 @@ function buildUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, m
     ? typeConfig.openingTemplates.map(t => `- ${t}`).join('\n')
     : '- Answer the search intent directly in the opening.';
 
+  const targetUrl = buildBlogUrl(site, task.urlslug);
   return `Write a ${typeKey} article for this keyword task.
 
 ## Keyword Task
@@ -240,6 +246,7 @@ function buildUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, m
 - Search intent: ${task.intent || '(infer from keyword)'}
 - Article direction: ${task.direction || task.notes || task.editorialnotes || ''}
 - Target URL slug: ${task.urlslug || ''}
+- Target article URL: ${targetUrl}
 - Target word count: ${task.targetwordcount || `${minWords}-${maxWords}`}
 - Search volume: ${task.volume || '(not provided)'}
 - KD / difficulty score: ${task.kd || '(not provided)'}
@@ -260,10 +267,11 @@ ${outline ? `\n## Approved Outline\nFollow this outline. Do not add unrelated se
 Now write the article. Output only the two required delimited blocks.`;
 }
 
-function buildOutlineUserPrompt({ task, typeKey, typeConfig, relevantLinks, minWords, maxWords }) {
+function buildOutlineUserPrompt({ site, task, typeKey, typeConfig, relevantLinks, minWords, maxWords }) {
   const linkBlock = relevantLinks.length
     ? relevantLinks.map(link => `- ${link.anchor}: ${link.url} (${link.topic || link.type})`).join('\n')
     : '- No required internal links were matched. Recommend only links supported by links.json or the keyword row.';
+  const targetUrl = buildBlogUrl(site, task.urlslug);
   return `Create the pre-writing outline for this keyword task. Do not draft the article body.
 
 ## Keyword Task
@@ -274,6 +282,7 @@ function buildOutlineUserPrompt({ task, typeKey, typeConfig, relevantLinks, minW
 - Article direction: ${task.direction || task.notes || task.editorialnotes || ''}
 - Article type: ${typeKey}
 - Target URL slug: ${task.urlslug || ''}
+- Target article URL: ${targetUrl}
 - Target word count: ${task.targetwordcount || `${minWords}-${maxWords}`}
 - Search volume: ${task.volume || '(not provided)'}
 - KD / difficulty score: ${task.kd || '(not provided)'}
@@ -319,6 +328,30 @@ function toArray(value) {
 function summarize(value, maxLen = 2000) {
   const text = typeof value === 'string' ? value : JSON.stringify(value || {}, null, 2);
   return text.length > maxLen ? `${text.slice(0, maxLen)}\n...[truncated]` : text;
+}
+
+function canonicalizeLinks(links = [], site = {}) {
+  return links.map(link => ({
+    ...link,
+    url: canonicalSiteUrl(site, link.url, link.type === 'blog'),
+  }));
+}
+
+function buildBlogUrl(site = {}, slug = '') {
+  const cleanSlug = String(slug || '').trim().replace(/^\/+|\/+$/g, '');
+  return canonicalSiteUrl(site, cleanSlug ? `/blog/${cleanSlug}/` : '/blog/');
+}
+
+function canonicalSiteUrl(site = {}, rawUrl = '', preferBlog = false) {
+  const url = String(rawUrl || '').trim();
+  if (!url) return '';
+  if (/^https?:\/\//i.test(url)) return url;
+  const base = String(site.domain || '').trim().replace(/\/+$/, '');
+  if (!base) return url.startsWith('/') ? url : `/${url}`;
+  let path = url.startsWith('/') ? url : `/${url}`;
+  if (preferBlog && !path.startsWith('/blog/')) path = `/blog/${path.replace(/^\/+/, '')}`;
+  if (!path.endsWith('/') && !/\.[a-z0-9]+$/i.test(path)) path += '/';
+  return `${base}${path}`;
 }
 
 function escapeHtml(value) {
