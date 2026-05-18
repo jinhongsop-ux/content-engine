@@ -33,6 +33,7 @@ button, input, textarea, select { font-family:inherit; }
 .top { height:46px; background:var(--bg); border-bottom:.5px solid var(--border); display:flex; align-items:center; gap:10px; padding:0 16px; position:sticky; top:0; z-index:100; }
 .logo { font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; }
 .site-sel { border:.5px solid var(--border2); border-radius:var(--r); padding:5px 9px; font-size:12px; background:var(--bg); color:var(--text); cursor:pointer; max-width:180px; }
+.site-manage-btn { padding:5px 9px; }
 .nav-tabs { display:flex; gap:2px; height:100%; align-items:center; }
 .nav-tab { border:none; border-bottom:2px solid transparent; background:transparent; color:var(--text2); padding:14px 10px 12px; font-size:12px; cursor:pointer; height:46px; white-space:nowrap; }
 .nav-tab.on { color:var(--blue); border-bottom-color:var(--blue); background:var(--blue-bg); }
@@ -205,6 +206,14 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
 .image-dropzone.dragover { background:var(--blue-bg); border-color:var(--blue); color:var(--blue); }
 .image-dropzone strong { color:var(--text2); font-weight:600; }
 
+.modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; padding:24px; z-index:260; }
+.modal-backdrop.open { display:flex; }
+.modal { width:min(860px,100%); max-height:calc(100vh - 48px); overflow:auto; background:var(--bg); border:.5px solid var(--border); border-radius:var(--r-lg); box-shadow:0 22px 60px rgba(0,0,0,.25); }
+.modal-head { height:46px; display:flex; align-items:center; gap:8px; padding:0 14px; border-bottom:.5px solid var(--border); background:var(--bg2); position:sticky; top:0; z-index:1; }
+.modal-title { font-size:13px; font-weight:600; flex:1; }
+.modal-body { padding:14px; }
+.modal-footer { display:flex; align-items:center; gap:8px; padding:12px 14px; border-top:.5px solid var(--border); background:var(--bg); position:sticky; bottom:0; }
+
 @media (max-width:1100px) {
   .api-inp { width:160px; }
   .nav-tab { padding-left:7px; padding-right:7px; }
@@ -216,12 +225,13 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
 <div class="top">
   <span class="logo">内容生产引擎</span>
   <select class="site-sel" id="siteSel" onchange="switchSite(this.value)"><option>加载中…</option></select>
+  <button class="btn btn-sm site-manage-btn" onclick="openSiteManager()">站点管理</button>
   <div class="nav-tabs">
     <button class="nav-tab on" data-panel="keywords" onclick="switchPanel('keywords')">关键词任务</button>
     <button class="nav-tab" data-panel="config" onclick="switchPanel('config')">站点配置</button>
     <button class="nav-tab" data-panel="logic" onclick="switchPanel('logic')">运行逻辑</button>
     <button class="nav-tab" data-panel="model" onclick="switchPanel('model')">模型设置</button>
-    <button class="nav-tab" data-panel="create" onclick="switchPanel('create')">新增站点</button>
+    <button class="nav-tab" data-panel="files" onclick="switchPanel('files')">上传文件管理</button>
   </div>
   <span class="sp"></span>
   <input class="api-inp" id="apiKey" type="password" placeholder="API 密钥（或设置环境变量）">
@@ -230,6 +240,55 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
   <button class="btn btn-sm" onclick="dlZip()">↓ 下载文章 ZIP</button>
   <button class="btn btn-sm" onclick="dlMeta()">↓ 元数据表格</button>
   <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="onCsvFile(this)">
+</div>
+
+<div class="modal-backdrop" id="siteManagerModal" onclick="if(event.target===this) closeSiteManager()">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">站点管理 — 新增站点与初始资料</span>
+      <button class="btn btn-sm" onclick="switchPanel('files'); closeSiteManager()">打开上传文件管理</button>
+      <button class="btn btn-icon" onclick="closeSiteManager()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="createNotice" class="notice"></div>
+      <div class="config-card">
+        <div class="card-head">
+          <span class="card-title">新增站点基础信息</span>
+          <span class="hint">先创建独立站点目录，再上传这个站点自己的变量资料。</span>
+        </div>
+        <div class="form-grid">
+          <div class="form-field"><label>网站ID *</label><input id="n_siteId" placeholder="my-site"></div>
+          <div class="form-field"><label>网站名称</label><input id="n_siteName"></div>
+          <div class="form-field"><label>域名</label><input id="n_domain" placeholder="https://..."></div>
+          <div class="form-field"><label>语言</label><input id="n_language" value="en"></div>
+          <div class="form-field span-all"><label>网站定位</label><textarea id="n_positioning" placeholder="这个网站帮助谁，解决什么问题，最终引导什么转化"></textarea></div>
+          <div class="form-field"><label>作者姓名</label><input id="n_authorName"></div>
+          <div class="form-field"><label>作者职位</label><input id="n_authorTitle"></div>
+          <div class="form-field"><label>写作语气</label><input id="n_tone" placeholder="clear, practical, specific"></div>
+          <div class="form-field"><label>目标受众</label><input id="n_targetAudience" placeholder="逗号分隔"></div>
+          <div class="form-field span-all"><label>必须表达</label><textarea id="n_mustSay" placeholder="一行一条"></textarea></div>
+          <div class="form-field span-all"><label>禁止表达</label><textarea id="n_mustNotSay" placeholder="一行一条"></textarea></div>
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="card-head">
+          <span class="card-title">初始资料上传流程</span>
+        </div>
+        <div class="hint" style="line-height:1.8">
+          创建成功后，系统会自动切换到新站点并打开「上传文件管理」。在那里上传品牌文档、作者档案、知识库、内链表、关键词表、样式参考和 Project 指令，识别结果会锁定到该新站点，避免和其它站点串数据。
+        </div>
+        <div class="form-actions" style="margin-top:10px">
+          <button class="btn btn-blue" onclick="startInitialFileUploadFromModal()">为当前站点上传初始文件/ZIP</button>
+          <span class="hint">如果已经选中新站点，也可以从这里直接进入上传流程。</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-green" onclick="createSite(this)">创建站点</button>
+      <button class="btn" onclick="closeSiteManager()">取消</button>
+      <span class="hint">创建后会生成 site.json、knowledge.json、author.json、links.json、style-reference.json、keywords.csv</span>
+    </div>
+  </div>
 </div>
 
 <div class="layout">
@@ -249,6 +308,9 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
         <button class="btn btn-sm" onclick="runSelectedOutlines()">运行已选大纲</button>
         <button class="btn btn-sm" onclick="resetAll()">重置全部</button>
         <button class="btn btn-sm" onclick="resetSelected()">重置已选</button>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn btn-green" style="flex:1" onclick="publishSelectedWordPress(this)">发布已选到 WordPress</button>
       </div>
       <div class="conc-row">
         <span>并发数</span>
@@ -345,39 +407,28 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       </div>
     </section>
 
-    <section class="panel" id="panel-create">
-      <div class="section-toolbar"><span class="toolbar-title">新增站点 — 创建一套新的站点文件夹和默认配置</span></div>
-      <div id="createNotice" class="notice"></div>
+    <section class="panel" id="panel-files">
+      <div class="section-toolbar">
+        <span class="toolbar-title">上传文件管理 — 当前站点变量数据与资料导入</span>
+        <button class="btn btn-blue btn-sm" onclick="chooseSetupFiles()">上传资料文件/ZIP 并识别</button>
+        <button class="btn btn-green btn-sm" onclick="applySelectedSetupFiles()">写入已勾选资料</button>
+      </div>
       <div class="scroll-panel">
         <div class="config-card">
-          <div class="form-grid">
-            <div class="form-field"><label>网站ID *</label><input id="n_siteId" placeholder="my-site"></div>
-            <div class="form-field"><label>网站名称</label><input id="n_siteName"></div>
-            <div class="form-field"><label>域名</label><input id="n_domain" placeholder="https://..."></div>
-            <div class="form-field"><label>语言</label><input id="n_language" value="en"></div>
-            <div class="form-field span-all"><label>网站定位</label><textarea id="n_positioning" placeholder="这个网站帮助谁，解决什么问题，最终引导什么转化"></textarea></div>
-            <div class="form-field"><label>作者姓名</label><input id="n_authorName"></div>
-            <div class="form-field"><label>作者职位</label><input id="n_authorTitle"></div>
-            <div class="form-field"><label>写作语气</label><input id="n_tone" placeholder="clear, practical, specific"></div>
-            <div class="form-field"><label>目标受众</label><input id="n_targetAudience" placeholder="逗号分隔"></div>
-            <div class="form-field span-all"><label>必须表达</label><textarea id="n_mustSay" placeholder="一行一条"></textarea></div>
-            <div class="form-field span-all"><label>禁止表达</label><textarea id="n_mustNotSay" placeholder="一行一条"></textarea></div>
+          <div class="card-head">
+            <span class="card-title">当前站点资料隔离说明</span>
+            <span class="hint" id="setupHint">所有上传识别结果都会绑定当前站点，切换站点后需要重新上传识别。</span>
           </div>
-          <div class="form-actions">
-            <button class="btn btn-green" onclick="createSite(this)">创建站点</button>
-            <span class="hint">创建后会生成 site.json、knowledge.json、author.json、links.json、style-reference.json、keywords.csv</span>
+          <div class="hint" style="line-height:1.8">
+            这个页面只处理当前已选站点的数据文件，例如品牌文档、作者档案、知识库、内链表、关键词表、样式参考和 Project 指令。新增站点请使用左上角「站点管理」，创建成功后系统会自动切换到新站点，再回到这里上传初始资料。
           </div>
         </div>
         <div class="config-card">
-          <div class="card-head">
-            <span class="card-title">建站资料向导</span>
-            <span class="hint">先创建站点，再上传原始资料/ZIP。AI 会识别模块、转换字段，并筛出无关文件。</span>
-          </div>
           <div class="form-actions" style="margin-bottom:10px">
             <button class="btn btn-blue" onclick="chooseSetupFiles()">上传资料文件/ZIP 并识别</button>
             <button class="btn btn-green" onclick="applySelectedSetupFiles()">写入已勾选资料</button>
-            <span class="hint" id="setupHint">创建站点后可上传：品牌文档、作者档案、知识库、内链表、关键词表、样式参考、Project 指令等。</span>
-            <input type="file" id="setupFileInput" multiple accept=".csv,.json,.md,.txt,.xlsx,.zip" style="display:none" onchange="onSetupFiles(this)">
+            <span class="hint">勾选后只会写入当前站点目录；无关文件会标记为忽略。</span>
+            <input type="file" id="setupFileInput" multiple accept=".csv,.json,.md,.txt,.xlsx,.docx,.zip" style="display:none" onchange="onSetupFiles(this)">
           </div>
           <div id="setupRequired"></div>
           <div id="setupPreview"></div>
@@ -539,6 +590,8 @@ let drawerPublishPack = null;
 let drawerImagePlan = null;
 let previewTranslations = { outline:{ original:'', translated:'', showing:false }, article:{ original:'', translated:'', showing:false } };
 let setupFiles = [];
+let setupFilesSite = '';
+let siteLoadSeq = 0;
 
 init();
 
@@ -552,41 +605,75 @@ async function init() {
 async function loadSites(preferSite) {
   const res = await api('GET', '/sites');
   if (!res) return;
+  const sites = res.sites || [];
   const sel = document.getElementById('siteSel');
-  sel.innerHTML = res.sites.length
-    ? res.sites.map(s => `<option value="${esc(s.siteId)}">${esc(s.displayName)}</option>`).join('')
+  sel.innerHTML = sites.length
+    ? sites.map(s => `<option value="${esc(s.siteId)}">${esc(s.displayName)}</option>`).join('')
     : '<option value="">未找到站点</option>';
-  if (res.sites.length) {
-    const next = preferSite || currentSite || res.sites[0].siteId;
-    sel.value = next;
-    await switchSite(next);
+  if (!sites.length) {
+    resetSiteState('');
+    return;
   }
+  const ids = new Set(sites.map(s => s.siteId));
+  const next = ids.has(preferSite) ? preferSite : ids.has(currentSite) ? currentSite : sites[0].siteId;
+  sel.value = next;
+  await switchSite(next);
+}
+
+function resetSiteState(siteId = '') {
+  siteLoadSeq++;
+  currentSite = siteId;
+  keywords = [];
+  selected.clear();
+  configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{} };
+  drawerSlug = '';
+  drawerHtml = '';
+  drawerPublishPack = null;
+  drawerImagePlan = null;
+  setupFiles = [];
+  setupFilesSite = '';
+  closeDrawer();
+  renderTable();
+  renderStats();
+  renderConfig();
+  renderSetupPreview();
+  document.getElementById('configSiteId').textContent = siteId || '?';
+  document.getElementById('tableTitle').textContent = siteId ? siteId + ' — 关键词规划表' : '关键词规划表';
+  updateSelectionState();
 }
 
 async function switchSite(siteId) {
-  currentSite = siteId;
-  selected.clear();
-  closeDrawer();
-  updateSelectionState();
-  await Promise.all([reloadKeywords(), loadConfigs()]);
+  if (!siteId) return resetSiteState('');
+  const token = siteLoadSeq + 1;
+  resetSiteState(siteId);
+  const sel = document.getElementById('siteSel');
+  if (sel) sel.value = siteId;
+  await Promise.all([reloadKeywords(token), loadConfigs(token)]);
+  if (token === siteLoadSeq) await loadSetupStatus(token);
 }
 
-async function reloadKeywords() {
+async function reloadKeywords(token = siteLoadSeq) {
   if (!currentSite) return;
-  const res = await api('GET', `/sites/${currentSite}/keywords`);
+  const siteAtRequest = currentSite;
+  const res = await api('GET', `/sites/${siteAtRequest}/keywords`);
   if (!res) return;
+  if (token !== siteLoadSeq || siteAtRequest !== currentSite) return;
   keywords = res.keywords || [];
   renderTable();
   renderStats();
   document.getElementById('tableTitle').textContent = currentSite + ' — 关键词规划表';
 }
 
-async function loadConfigs() {
+async function loadConfigs(token = siteLoadSeq) {
   if (!currentSite) return;
+  const siteAtRequest = currentSite;
+  const nextConfigs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{} };
   for (const key of ['site','author','knowledge','links','style-reference']) {
-    const res = await api('GET', `/sites/${currentSite}/config/${key}`);
-    if (res) configs[key] = res.content || {};
+    const res = await api('GET', `/sites/${siteAtRequest}/config/${key}`);
+    if (token !== siteLoadSeq || siteAtRequest !== currentSite) return;
+    if (res) nextConfigs[key] = res.content || {};
   }
+  configs = nextConfigs;
   document.getElementById('configSiteId').textContent = currentSite;
   renderConfig();
 }
@@ -600,10 +687,25 @@ async function loadTemplates() {
 }
 
 function switchPanel(name) {
+  if (name === 'create') name = 'files';
   document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('on', btn.dataset.panel === name));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
   document.getElementById('panel-' + name)?.classList.add('on');
-  if (name === 'create' && currentSite) loadSetupStatus();
+  if (name === 'files' && currentSite) loadSetupStatus();
+}
+
+function openSiteManager() {
+  document.getElementById('siteManagerModal')?.classList.add('open');
+}
+
+function closeSiteManager() {
+  document.getElementById('siteManagerModal')?.classList.remove('open');
+}
+
+function startInitialFileUploadFromModal() {
+  closeSiteManager();
+  switchPanel('files');
+  chooseSetupFiles();
 }
 
 function switchSubtab(group, name) {
@@ -1275,6 +1377,92 @@ async function publishWordPress(btn) {
   log(msg, 'ok');
 }
 
+async function publishSelectedWordPress(btn) {
+  const wp = configs.site?.wordpress || {};
+  if (!wp.endpoint || !wp.username || !wp.appPassword) {
+    switchPanel('config');
+    switchSubtabByName('config', 'site');
+    return log('请先在「站点配置 → 品牌设置 → WordPress 发布接口」填写接口地址、用户名和 Application Password', 'err');
+  }
+  const rows = keywords.filter(row => selected.has(row.urlslug));
+  if (!rows.length) return log('请先勾选要发布的文章', 'err');
+  const publishable = rows;
+
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = '发布中…'; }
+  const pw = document.getElementById('progWrap');
+  const pf = document.getElementById('progFill');
+  const pl = document.getElementById('progLbl');
+  pw.style.display = 'block';
+  pf.style.width = '0%';
+  pl.textContent = `WordPress 发布 0 / ${publishable.length}`;
+
+  let ok = 0;
+  let failed = 0;
+  let skippedNoHtml = 0;
+  for (let i = 0; i < publishable.length; i++) {
+    const row = publishable[i];
+    log(`发布到 WordPress：${row.urlslug}`, 'run');
+    const htmlExists = await articleHtmlExists(row.urlslug);
+    if (!htmlExists) {
+      skippedNoHtml++;
+      log(`跳过：${row.urlslug} 没有生成 HTML 文件`, 'err');
+      pf.style.width = Math.round((i + 1) / publishable.length * 100) + '%';
+      pl.textContent = `WordPress 发布 ${i + 1} / ${publishable.length}`;
+      continue;
+    }
+    const pack = await fetchPublishPackForPublish(row.urlslug);
+    const res = await api('POST', `/sites/${currentSite}/publish-wordpress/${row.urlslug}`, {
+      status: wp.defaultStatus || 'draft',
+      categories: wp.categories || [],
+      tags: wp.tags || [],
+      seoTitle: pack?.seoTitles?.[0] || '',
+      metaDescription: pack?.metaDescription || '',
+    });
+    if (res) {
+      ok++;
+      log(`WP发布完成：${row.urlslug} · #${res.wpPostId || ''} ${res.link || ''}`, 'ok');
+    } else {
+      failed++;
+      log(`WP发布失败：${row.urlslug}`, 'err');
+    }
+    pf.style.width = Math.round((i + 1) / publishable.length * 100) + '%';
+    pl.textContent = `WordPress 发布 ${i + 1} / ${publishable.length}`;
+    if (i < publishable.length - 1) await delay(1200);
+  }
+  pw.style.display = 'none';
+  if (btn) { btn.disabled = false; btn.textContent = original || '发布已选到 WordPress'; }
+  log(`WordPress 批量发布完成：成功 ${ok}，失败 ${failed}，无HTML跳过 ${skippedNoHtml}`, failed ? 'err' : 'ok');
+}
+
+async function fetchPublishPackForPublish(slug) {
+  try {
+    const res = await fetch(`/api/sites/${currentSite}/publish-pack/${slug}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function articleHtmlExists(slug) {
+  try {
+    const res = await fetch(`/api/sites/${currentSite}/articles/${slug}`, { method: 'HEAD' });
+    if (res.ok) return true;
+    if (res.status !== 405) return false;
+  } catch {}
+  try {
+    const res = await fetch(`/api/sites/${currentSite}/articles/${slug}`);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function switchSubtabByName(group, name) {
   document.querySelectorAll(`#${group}Tabs .subtab`).forEach(btn => btn.classList.remove('on'));
   document.querySelectorAll(`[id^="${group}-"].subpane`).forEach(p => p.classList.remove('on'));
@@ -1478,27 +1666,27 @@ function renderTermTable(rows) {
   return `<table class="mini-table" id="termTbl"><thead><tr><th>中文术语</th><th>英文术语</th><th>释义</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => termRow(r)).join('')}</tbody></table>`;
 }
 function termRow(r = {}) {
-  return `<tr><td><input value="${escAttr(r.zh || r.cn || r.term || '')}"></td><td><input value="${escAttr(r.en || r.english || '')}"></td><td><input value="${escAttr(r.definition || r.desc || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+  return `<tr><td><input value="${escAttr(r.zh || r.cn || r.term || '')}"></td><td><input value="${escAttr(r.en || r.english || '')}"></td><td><input value="${escAttr(r.definition || r.desc || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="confirmRemove(this,'tr','删除这条术语？')">✕</button></td></tr>`;
 }
 function addTerm() { document.querySelector('#termTbl tbody').insertAdjacentHTML('beforeend', termRow()); }
 function renderFaqTable(rows) {
   return `<table class="mini-table" id="faqTbl"><thead><tr><th>问题</th><th>回答</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => faqRow(r)).join('')}</tbody></table>`;
 }
 function faqRow(r = {}) {
-  return `<tr><td><input value="${escAttr(r.question || '')}"></td><td><input value="${escAttr(r.answer || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+  return `<tr><td><input value="${escAttr(r.question || '')}"></td><td><input value="${escAttr(r.answer || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="confirmRemove(this,'tr','删除这条 FAQ？')">✕</button></td></tr>`;
 }
 function addFaq() { document.querySelector('#faqTbl tbody').insertAdjacentHTML('beforeend', faqRow()); }
 function renderListRows(rows, type) {
-  return rows.map(v => `<div class="list-row"><input data-list="${type}" value="${escAttr(typeof v === 'string' ? v : JSON.stringify(v))}"><button class="btn btn-sm btn-icon" onclick="this.parentElement.remove()">✕</button></div>`).join('');
+  return rows.map(v => `<div class="list-row"><input data-list="${type}" value="${escAttr(typeof v === 'string' ? v : JSON.stringify(v))}"><button class="btn btn-sm btn-icon" onclick="confirmRemove(this,'.list-row','删除这一条内容？')">✕</button></div>`).join('');
 }
 function addListRow(type) {
-  document.getElementById(type + 'sList')?.insertAdjacentHTML('beforeend', `<div class="list-row"><input data-list="${type}" value=""><button class="btn btn-sm btn-icon" onclick="this.parentElement.remove()">✕</button></div>`);
+  document.getElementById(type + 'sList')?.insertAdjacentHTML('beforeend', `<div class="list-row"><input data-list="${type}" value=""><button class="btn btn-sm btn-icon" onclick="confirmRemove(this,'.list-row','删除这一条内容？')">✕</button></div>`);
 }
 function renderLinkSection(title, key, rows) {
   return `<details class="config-card" open><summary>${title}</summary><div style="margin-top:10px"><table class="mini-table" id="${key}Tbl"><thead><tr><th>锚文本</th><th>URL</th><th>话题</th><th>关键词</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => linkRow(r)).join('')}</tbody></table><button class="btn btn-sm" onclick="addLink('${key}')">＋ 增加链接</button></div></details>`;
 }
 function linkRow(r = {}) {
-  return `<tr><td><input value="${escAttr(r.anchor || r.title || '')}"></td><td><input value="${escAttr(r.url || '')}"></td><td><input value="${escAttr(r.topic || '')}"></td><td><input value="${escAttr(Array.isArray(r.keywords) ? r.keywords.join(', ') : (r.keywords || ''))}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+  return `<tr><td><input value="${escAttr(r.anchor || r.title || '')}"></td><td><input value="${escAttr(r.url || '')}"></td><td><input value="${escAttr(r.topic || '')}"></td><td><input value="${escAttr(Array.isArray(r.keywords) ? r.keywords.join(', ') : (r.keywords || ''))}"></td><td><button class="btn btn-sm btn-icon" onclick="confirmRemove(this,'tr','删除这条内链？')">✕</button></td></tr>`;
 }
 function addLink(key) { document.querySelector(`#${key}Tbl tbody`).insertAdjacentHTML('beforeend', linkRow()); }
 function readTable(id, cols) {
@@ -1559,6 +1747,7 @@ function formatArticleTypesJson() {
   }
 }
 function resetAllArticleTypes() {
+  if (!confirm('恢复文章类型策略默认骨架？当前未保存的修改会被覆盖。')) return;
   templates['article-types'] = stripHardcodedArticleTemplates(DEFAULT_ARTICLE_TYPES);
   renderArticleTypes();
   log('文章类型策略已恢复为默认骨架，保存后生效', 'ok');
@@ -1604,7 +1793,7 @@ function renderQaTable(type, rows) {
   return `<table class="mini-table" id="${type}Tbl"><thead><tr><th>规则ID</th><th>检查项</th><th>错误说明</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => qaRow(r)).join('')}</tbody></table>`;
 }
 function qaRow(r = {}) {
-  return `<tr><td><input value="${escAttr(r.id || '')}"></td><td><select>${QA_CHECKS.map(v => `<option ${r.check===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input value="${escAttr(r.message || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+  return `<tr><td><input value="${escAttr(r.id || '')}"></td><td><select>${QA_CHECKS.map(v => `<option ${r.check===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input value="${escAttr(r.message || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="confirmRemove(this,'tr','删除这条 QA 规则？')">✕</button></td></tr>`;
 }
 function addQaRow(type) { document.querySelector(`#${type}Tbl tbody`).insertAdjacentHTML('beforeend', qaRow()); }
 function renderWeights(weights) {
@@ -1659,6 +1848,7 @@ async function saveTemplate(key, btn, original) {
   if (res) { savedButton(btn, original); log(`${key}.json 已保存`, 'ok'); }
 }
 async function restoreTemplate(key) {
+  if (!confirm(`恢复 ${key}.json 为默认值？当前自定义内容会被删除。`)) return;
   const res = await api('DELETE', `/templates/${key}`);
   if (!res) return;
   templates[key] = structuredClone(key === 'article-types' ? DEFAULT_ARTICLE_TYPES : key === 'prompt-sections' ? DEFAULT_PROMPT_SECTIONS : DEFAULT_QA_RULES);
@@ -1685,16 +1875,21 @@ async function createSite(btn) {
   const res = await api('POST', '/sites/create', body);
   btn.disabled = false;
   if (!res) return;
-  showNotice(`站点 ${res.siteId} 已创建，请继续完善站点配置`);
+  showNotice(`\u7ad9\u70b9 ${res.siteId} \u5df2\u521b\u5efa\uff0c\u8bf7\u7ee7\u7eed\u5b8c\u5584\u7ad9\u70b9\u914d\u7f6e`);
+  setupFiles = [];
+  renderSetupPreview();
   await loadSites(res.siteId);
-  switchPanel('create');
+  closeSiteManager();
+  switchPanel('files');
   await loadSetupStatus();
-  log(`站点 ${res.siteId} 已创建`, 'ok');
+  log(`\u7ad9\u70b9 ${res.siteId} \u5df2\u521b\u5efa\uff0c\u5e76\u5df2\u5207\u6362\u5230\u65b0\u7ad9\u70b9\uff0c\u53ef\u4ee5\u4e0a\u4f20\u521d\u59cb\u8d44\u6599`, 'ok');
 }
 
-async function loadSetupStatus() {
+async function loadSetupStatus(token = siteLoadSeq) {
   if (!currentSite) return;
-  const res = await api('POST', `/sites/${currentSite}/setup-preview`, { files: [{ name: 'readme.md', relativePath: 'readme.md', encoding: 'utf8', content: '# setup status probe' }], ...getApiConfigWithoutKey() });
+  const siteAtRequest = currentSite;
+  const res = await api('POST', `/sites/${siteAtRequest}/setup-preview`, { siteId: siteAtRequest, files: [{ name: 'readme.md', relativePath: 'readme.md', encoding: 'utf8', content: '# setup status probe' }], ...getApiConfigWithoutKey() });
+  if (token !== siteLoadSeq || siteAtRequest !== currentSite) return;
   if (res?.required) renderSetupRequired(res.required);
 }
 
@@ -1707,24 +1902,32 @@ async function onSetupFiles(input) {
   const files = [...(input.files || [])];
   if (!files.length) return;
   if (!currentSite) return log('请先创建或选择站点', 'err');
+  const siteAtUpload = currentSite;
   log(`开始识别 ${files.length} 个建站资料文件`, 'run');
   const payload = [];
   for (const file of files) {
     const relativePath = file.webkitRelativePath || file.name;
     const lower = file.name.toLowerCase();
-    if (lower.endsWith('.xlsx') || lower.endsWith('.zip')) {
+    if (lower.endsWith('.xlsx') || lower.endsWith('.docx') || lower.endsWith('.zip')) {
       payload.push({ name: file.name, relativePath, encoding: 'base64', content: await fileToBase64(file) });
     } else {
       payload.push({ name: file.name, relativePath, encoding: 'utf8', content: await file.text() });
     }
   }
   input.value = '';
-  const res = await api('POST', `/sites/${currentSite}/setup-preview`, { files: payload, ...getApiConfig() });
+  if (siteAtUpload !== currentSite) {
+    return log(`站点已切换，本次 ${siteAtUpload} 的上传识别已取消`, 'err');
+  }
+  const res = await api('POST', `/sites/${siteAtUpload}/setup-preview`, { siteId: siteAtUpload, files: payload, ...getApiConfig() });
   if (!res) return;
+  if (siteAtUpload !== currentSite) {
+    return log(`站点已切换，本次 ${siteAtUpload} 的识别结果已丢弃，避免写入到 ${currentSite}`, 'err');
+  }
   setupFiles = res.files || [];
+  setupFilesSite = siteAtUpload;
   renderSetupRequired(res.required || []);
   renderSetupPreview();
-  log(`资料识别完成：${setupFiles.length} 个文件`, 'ok');
+  log(`${siteAtUpload} 资料识别完成：${setupFiles.length} 个文件`, 'ok');
 }
 
 function renderSetupRequired(items = []) {
@@ -1733,7 +1936,7 @@ function renderSetupRequired(items = []) {
   el.innerHTML = `<table class="mini-table"><thead><tr><th>需要的文件</th><th>用途</th><th>状态</th></tr></thead><tbody>${items.map(item => `<tr>
     <td style="font-family:monospace">${esc(item.file)}</td>
     <td><strong>${esc((SETUP_REQUIRED_ZH[item.file] || [item.label])[0])}</strong><br><span class="hint">${esc((SETUP_REQUIRED_ZH[item.file] || [null, item.description])[1])}</span></td>
-    <td><span class="badge ${item.exists && item.size > 20 ? 'badge-done' : 'badge-queued'}">${item.exists && item.size > 20 ? '已上传' : '未上传完成'}</span></td>
+    <td><span class="badge ${item.complete ? 'badge-done' : item.exists ? 'badge-running' : 'badge-queued'}">${item.complete ? '\u5df2\u4e0a\u4f20\u5b8c\u6210' : item.exists ? '\u5df2\u521b\u5efa\u9aa8\u67b6\uff0c\u5f85\u8865\u5145' : '\u672a\u4e0a\u4f20'}</span></td>
   </tr>`).join('')}</tbody></table>`;
 }
 
@@ -1741,10 +1944,12 @@ function renderSetupPreview() {
   const el = document.getElementById('setupPreview');
   if (!el) return;
   if (!setupFiles.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="card-head" style="margin-top:14px"><span class="card-title">AI 识别结果</span><span class="hint">勾选要写入的文件；无关文件会标记为忽略。</span></div>
+  const lockedSite = setupFilesSite || currentSite;
+  const siteMismatch = lockedSite && currentSite && lockedSite !== currentSite;
+  el.innerHTML = `<div class="card-head" style="margin-top:14px"><span class="card-title">AI 识别结果（将写入：${esc(lockedSite || '-')}）</span><span class="hint">${siteMismatch ? '当前站点已切换，请重新上传识别，避免资料串站。' : '勾选要写入的文件；无关文件会标记为忽略。'}</span></div>
   <table class="mini-table"><thead><tr><th style="width:34px"></th><th>文件</th><th>识别模块</th><th>目标文件</th><th>置信度</th><th>说明</th></tr></thead><tbody>
   ${setupFiles.map((file, i) => {
-    const actionable = file.target && file.target !== 'ignore' && file.status !== 'ignored';
+    const actionable = !siteMismatch && file.target && file.target !== 'ignore' && file.status !== 'ignored';
     return `<tr>
       <td><input type="checkbox" data-setup-index="${i}" ${actionable ? 'checked' : 'disabled'}></td>
       <td style="font-family:monospace">${esc(file.relativePath || file.name)}</td>
@@ -1757,15 +1962,22 @@ function renderSetupPreview() {
 }
 
 async function applySelectedSetupFiles() {
+  const targetSite = setupFilesSite || currentSite;
+  if (!targetSite) return log('请先创建或选择站点', 'err');
+  if (targetSite !== currentSite) return log(`识别结果属于 ${targetSite}，当前是 ${currentSite}。请重新上传识别后再写入。`, 'err');
   const selectedFiles = [...document.querySelectorAll('[data-setup-index]:checked')].map(input => setupFiles[Number(input.dataset.setupIndex)]).filter(Boolean);
   if (!selectedFiles.length) return log('没有勾选可写入资料', 'err');
-  const res = await api('POST', `/sites/${currentSite}/setup-apply`, { files: selectedFiles });
+  const res = await api('POST', `/sites/${targetSite}/setup-apply`, { siteId: targetSite, files: selectedFiles });
   if (!res) return;
   renderSetupRequired(res.required || []);
-  log(`建站资料写入完成：${res.filesApplied || 0} 个文件`, res.errors?.length ? 'err' : 'ok');
-  (res.summary || []).forEach(item => log(`写入：${item.file} -> ${item.target}`, 'ok'));
-  (res.errors || []).forEach(item => log(`未写入：${item.file} - ${item.error}`, 'err'));
-  await Promise.all([loadSites(currentSite), loadConfigs(), reloadKeywords()]);
+  log(`${targetSite} 建站资料写入完成：${res.filesApplied || 0} 个文件`, res.errors?.length ? 'err' : 'ok');
+  (res.summary || []).forEach(item => log(`\u5bfc\u5165\uff1a${item.file} -> ${item.target}`, 'ok'));
+  (res.errors || []).forEach(item => log(`\u5bfc\u5165\u5931\u8d25\uff1a${item.file} - ${item.error}`, 'err'));
+  const keepSite = currentSite;
+  setupFiles = (res.errors && res.errors.length) ? setupFiles : [];
+  if (!setupFiles.length) setupFilesSite = '';
+  renderSetupPreview();
+  await loadSites(keepSite);
 }
 
 function fileToBase64(file) {
@@ -1808,6 +2020,7 @@ function saveGeminiSettings() {
 }
 
 function resetGeminiSettings() {
+  if (!confirm('恢复 Gemini 辅助模型默认设置？')) return;
   localStorage.removeItem('contentEngineGeminiSettings');
   document.getElementById('g_preset').value = 'gemini-3-flash-lite';
   document.getElementById('g_apiKey').value = '';
@@ -1864,6 +2077,7 @@ function saveModelSettings(btn) {
 }
 
 function resetModelSettings() {
+  if (!confirm('恢复文章生成模型默认设置？')) return;
   localStorage.removeItem('contentEngineModelSettings');
   document.getElementById('m_preset').value = 'xiaomimimo-sgp';
   applyModelPreset('xiaomimimo-sgp');
@@ -1915,6 +2129,10 @@ function savedButton(btn, original) {
   const text = original || btn.textContent;
   btn.textContent = '✓ 已保存';
   setTimeout(() => { btn.textContent = text; }, 1500);
+}
+function confirmRemove(btn, selector, message) {
+  if (!confirm(message || '确认删除这一项？')) return;
+  btn.closest(selector)?.remove();
 }
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text || ''); log('已复制到剪贴板', 'ok'); }

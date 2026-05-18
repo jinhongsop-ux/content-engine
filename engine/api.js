@@ -9,6 +9,7 @@ import fs from 'fs';
 import archiver from 'archiver';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
+import { parse } from 'csv-parse/sync';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
@@ -53,6 +54,20 @@ const TEMPLATE_FILES = {
 };
 
 const EDITABLE_SITE_FILES = new Set(['site.json', 'knowledge.json', 'author.json', 'links.json', 'style-reference.json', 'project-instructions.md', 'keywords.csv']);
+const KEYWORD_COLUMN_ALIASES = {
+  blogid: ['blogid', 'blog id', 'clusterid', 'cluster id', '聚类id'],
+  keyword: ['keyword', 'primarykw', 'primary kw', '核心关键词', '主关键词', '父级关键词primarykw', '父级关键词', '核心词'],
+  urlslug: ['urlslug', 'url slug', 'slug', '目标url', 'url'],
+  priority: ['priority', '优先级'],
+  intent: ['intent', 'search intent', '搜索意图'],
+  articletype: ['articletype', 'article type', 'schema', '页面类型'],
+  secondarykeywords: ['secondarykeywords', 'secondary keywords', 'variants', '次要关键词变体', '副关键词变体', '子级变体关键词', '变体关键词'],
+  direction: ['direction', '内容指令编辑备注', '内容指令', '内容角度', '页面h1', 'h1标题', 'h1建议'],
+  pillartarget: ['pillartarget', 'pillar target', '内链目标', '目标url'],
+  volume: ['volume', 'vol', '搜索量'],
+  kd: ['kd'],
+  cannibalcheck: ['cannibalcheck', '蚕食风险检查'],
+};
 const stores = new Map();
 
 router.get('/sites', (req, res) => {
@@ -112,7 +127,10 @@ router.post('/sites/:siteId/config/:file', (req, res) => {
     if (!content || typeof content !== 'object' || Array.isArray(content)) {
       return res.status(400).json({ error: 'Body must be { content: object }' });
     }
-    fs.writeFileSync(filePath, JSON.stringify(content, null, 2), 'utf-8');
+    const output = req.params.file === 'site'
+      ? normalizeSiteConfigForWrite(content, req.params.siteId)
+      : content;
+    fs.writeFileSync(filePath, JSON.stringify(output, null, 2), 'utf-8');
     stores.delete(req.params.siteId);
     res.json({ ok: true });
   } catch (err) {
@@ -335,6 +353,9 @@ router.post('/sites/:siteId/import-preview', async (req, res) => {
 router.post('/sites/:siteId/import-files', async (req, res) => {
   try {
     const { siteId } = req.params;
+    if (req.body?.siteId && req.body.siteId !== siteId) {
+      return res.status(409).json({ error: `Site mismatch: request body is for ${req.body.siteId}, route is ${siteId}` });
+    }
     const files = Array.isArray(req.body?.files) ? req.body.files : [];
     if (!files.length) return res.status(400).json({ error: 'Body must include files: [{ name, content }]' });
     const result = await importSiteFiles(siteId, await expandImportFiles(files));
@@ -348,6 +369,9 @@ router.post('/sites/:siteId/import-files', async (req, res) => {
 router.post('/sites/:siteId/setup-preview', async (req, res) => {
   try {
     const { siteId } = req.params;
+    if (req.body?.siteId && req.body.siteId !== siteId) {
+      return res.status(409).json({ error: `Site mismatch: request body is for ${req.body.siteId}, route is ${siteId}` });
+    }
     const files = Array.isArray(req.body?.files) ? req.body.files : [];
     if (!files.length) return res.status(400).json({ error: 'Body must include files: [{ name, content }]' });
     const expanded = await expandImportFiles(files);
@@ -368,6 +392,9 @@ router.post('/sites/:siteId/setup-preview', async (req, res) => {
 router.post('/sites/:siteId/setup-apply', async (req, res) => {
   try {
     const { siteId } = req.params;
+    if (req.body?.siteId && req.body.siteId !== siteId) {
+      return res.status(409).json({ error: `Site mismatch: request body is for ${req.body.siteId}, route is ${siteId}` });
+    }
     const files = Array.isArray(req.body?.files) ? req.body.files : [];
     if (!files.length) return res.status(400).json({ error: 'Body must include selected files' });
     const result = await applySetupFiles(siteId, files);
@@ -776,7 +803,7 @@ async function previewImportFile(siteId, file, index = 0) {
   const baseName = path.basename(rawName).toLowerCase();
   const dirName = path.dirname(rawName).replace(/\\/g, '/').toLowerCase();
   const buf = decodeImportFile(file);
-  const text = buf.toString('utf-8').replace(/^\uFEFF/, '');
+  const text = await importFileText(file);
   const preview = {
     id: String(index),
     name: file.name || path.basename(rawName),
@@ -792,8 +819,8 @@ async function previewImportFile(siteId, file, index = 0) {
   };
 
   try {
-    if (baseName === 'keywords.csv' || (baseName.endsWith('.xlsx') && baseName.includes('keyword'))) {
-      const csv = baseName.endsWith('.xlsx') ? await workbookToCsv(buf) : text;
+    if (baseName === 'keywords.csv' || await isKeywordWorkbook(baseName, buf)) {
+      const csv = baseName.endsWith('.xlsx') ? await workbookToKeywordCsv(buf) : text;
       const report = await previewKeywords(siteId, csv);
       return {
         ...preview,
@@ -803,6 +830,62 @@ async function previewImportFile(siteId, file, index = 0) {
         reason: `${report.added} new, ${report.skipped} duplicate`,
         keywordReport: report,
         duplicate: report.added === 0,
+      };
+    }
+
+    if (isKnowledgeWorkbookName(baseName)) {
+      const mappedContent = await workbookToKnowledgeJson(buf, baseName);
+      return {
+        ...preview,
+        action: 'knowledge-xlsx-import',
+        target: 'knowledge.json',
+        module: 'knowledge',
+        status: Object.keys(mappedContent).length ? 'ready' : 'ignored',
+        confidence: 0.9,
+        reason: 'Matched category cognition / knowledge workbook and converted workbook sheets into knowledge.json.',
+        mappedContent,
+      };
+    }
+
+    if (baseName.endsWith('.docx') && /(?:d2c|创始人|founder|author|identity)/i.test(baseName)) {
+      const mappedContent = docxTextToAuthorJson(text);
+      return {
+        ...preview,
+        action: 'author-docx-import',
+        target: 'author.json',
+        module: 'author',
+        status: mappedContent.name || mappedContent.background || mappedContent.storyBank.length ? 'ready' : 'review',
+        confidence: 0.88,
+        reason: 'Matched founder identity DOCX and extracted author profile plus story bank.',
+        mappedContent,
+      };
+    }
+
+    if (baseName.endsWith('.docx') && /(?:调性|tone|brand|voice|d2b)/i.test(baseName)) {
+      const mappedContent = docxTextToSiteJson(text);
+      return {
+        ...preview,
+        action: 'brand-docx-import',
+        target: 'site.json',
+        module: 'site',
+        status: mappedContent.siteName || mappedContent.positioning ? 'ready' : 'review',
+        confidence: 0.82,
+        reason: 'Matched brand tone DOCX and extracted site variables, audience, tone, must-say and must-not-say.',
+        mappedContent,
+      };
+    }
+
+    if (/links?\.(md|txt)$/i.test(baseName)) {
+      const mappedContent = markdownToLinksJson(text);
+      return {
+        ...preview,
+        action: 'links-md-import',
+        target: 'links.json',
+        module: 'links',
+        status: Object.values(mappedContent).some(v => Array.isArray(v) && v.length) ? 'ready' : 'review',
+        confidence: 0.9,
+        reason: 'Matched internal link library markdown and converted tab-separated link rows.',
+        mappedContent,
       };
     }
 
@@ -880,21 +963,38 @@ function setupRequiredFiles(siteId) {
   return items.map(([file, label, description]) => {
     const filePath = join(siteDir, file);
     const exists = fs.existsSync(filePath);
-    return {
-      file,
-      label,
-      description,
-      exists,
-      size: exists ? fs.statSync(filePath).size : 0,
-    };
+    const size = exists ? fs.statSync(filePath).size : 0;
+    const complete = exists ? isSetupFileComplete(filePath, file) : false;
+    return { file, label, description, exists, size, complete, status: complete ? 'complete' : exists ? 'needs-data' : 'missing' };
   });
+}
+
+function isSetupFileComplete(filePath, file) {
+  try {
+    if (file === 'keywords.csv') return readKeywordRows(fs.readFileSync(filePath, 'utf-8')).length > 0;
+    if (file === 'project-instructions.md') {
+      const text = fs.readFileSync(filePath, 'utf-8').trim();
+      return text.length > 500 && !text.includes('[fill in');
+    }
+    const json = readJsonFile(filePath) || {};
+    if (file === 'site.json') return Boolean(json.siteName && json.domain && json.language);
+    if (file === 'author.json') return Boolean(json.name && (json.background || (Array.isArray(json.storyBank) && json.storyBank.length)));
+    if (file === 'knowledge.json') return ['terminology','authorityFacts','buyerFAQ','buyerQuestions','objections','sellingPoints'].some(key => Array.isArray(json[key]) && json[key].length);
+    if (file === 'links.json') return ['pillarPages','categoryPages','blogPosts','productPages','trustPages'].some(key => Array.isArray(json[key]) && json[key].length);
+    if (file === 'style-reference.json') {
+      const direct = [json.styleBrief, json.styleReference, json.visualStyle, json.referenceHtml].some(value => typeof value === 'string' && value.trim().length > 80);
+      const rules = Array.isArray(json.htmlRulesForGeneration) && json.htmlRulesForGeneration.some(value => String(value || '').trim().length > 20);
+      const components = json.extractedStyle && Array.isArray(json.extractedStyle.components) && json.extractedStyle.components.length;
+      const samples = json.sampleBlocks && Object.values(json.sampleBlocks).some(value => typeof value === 'string' && value.trim().length > 80);
+      return Boolean(direct || rules || components || samples);
+    }
+  } catch {}
+  return false;
 }
 
 async function classifySetupFileWithAI(file, apiConfig = {}) {
   const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
-  const baseName = path.basename(rawName).toLowerCase();
-  const buf = decodeImportFile(file);
-  const text = baseName.endsWith('.xlsx') ? await workbookToCsv(buf) : buf.toString('utf-8').replace(/^\uFEFF/, '');
+  const text = await importFileText(file);
   const sample = summarize(text, 12000);
   const systemPrompt = `You classify and convert uploaded website onboarding files for a content-engine app.
 Return only valid JSON. No markdown.
@@ -938,13 +1038,17 @@ Return this JSON shape:
 function normalizeSetupPreview(file, heuristic, ai, index = 0) {
   const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
   const aiTarget = ai && !ai.error ? String(ai.target || '').trim() : '';
-  const target = aiTarget && aiTarget !== 'ignore' ? sanitizeSetupTarget(aiTarget, rawName) : heuristic.target;
-  const module = ai && !ai.error ? ai.module || targetToSetupModule(target) : targetToSetupModule(heuristic.target);
-  const status = aiTarget === 'ignore' || heuristic.status === 'ignored'
-    ? 'ignored'
-    : heuristic.status === 'error'
-      ? 'review'
-      : heuristic.status || 'review';
+  const heuristicTarget = heuristic.target && heuristic.target !== 'ignore' ? heuristic.target : '';
+  const target = heuristicTarget || (aiTarget && aiTarget !== 'ignore' ? sanitizeSetupTarget(aiTarget, rawName) : heuristic.target);
+  const module = heuristicTarget ? targetToSetupModule(target) : (ai && !ai.error ? ai.module || targetToSetupModule(target) : targetToSetupModule(heuristic.target));
+  const status = heuristicTarget
+    ? (heuristic.status === 'ignored' ? 'review' : heuristic.status || 'ready')
+    : aiTarget === 'ignore' || heuristic.status === 'ignored'
+      ? 'ignored'
+      : heuristic.status === 'error'
+        ? 'review'
+        : heuristic.status || 'review';
+  const mappedContent = heuristic.mappedContent ?? (ai && !ai.error ? ai.mappedContent : null);
   return {
     id: String(index),
     name: file.name || path.basename(rawName),
@@ -955,10 +1059,10 @@ function normalizeSetupPreview(file, heuristic, ai, index = 0) {
     target,
     module,
     status,
-    confidence: Number(ai?.confidence ?? (heuristic.status === 'ignored' ? 0.25 : 0.75)),
-    reason: ai?.reason || ai?.error || heuristic.reason || '',
+    confidence: Number(heuristic.confidence ?? ai?.confidence ?? (heuristic.status === 'ignored' ? 0.25 : 0.75)),
+    reason: heuristicTarget ? (heuristic.reason || ai?.reason || '') : (ai && !ai.error ? (ai.reason || heuristic.reason || '') : (heuristic.reason || ai?.error || '')),
     aiError: ai?.error || '',
-    mappedContent: ai && !ai.error ? ai.mappedContent : null,
+    mappedContent,
     heuristic,
   };
 }
@@ -998,13 +1102,13 @@ async function applySetupFiles(siteId, files) {
         summary.push({ file: file.relativePath || file.name, action: 'ignored', target: 'ignore' });
         continue;
       }
-      const raw = decodeImportFile(file).toString('utf-8').replace(/^\uFEFF/, '');
+      const raw = await importFileText(file);
       const mapped = file.mappedContent;
       if (target === 'keywords.csv') {
         const csv = typeof mapped === 'string' && mapped.trim()
           ? mapped
           : /\.xlsx$/i.test(file.relativePath || file.name || '')
-            ? await workbookToCsv(decodeImportFile(file))
+            ? await workbookToKeywordCsv(decodeImportFile(file))
             : raw;
         const report = await importKeywordsCsvDirect(siteId, csv);
         summary.push({ file: file.relativePath || file.name, action: 'keywords-imported', target, ...report });
@@ -1031,7 +1135,11 @@ async function applySetupFiles(siteId, files) {
       }
       if (['site.json', 'author.json', 'knowledge.json', 'links.json', 'style-reference.json'].includes(target)) {
         const current = fs.existsSync(join(siteDir, target)) ? JSON.parse(fs.readFileSync(join(siteDir, target), 'utf-8')) : {};
-        const content = mapped && typeof mapped === 'object' ? mergeObjects(current, mapped) : JSON.parse(raw);
+        const mappedObject = normalizeMappedJsonObject(mapped);
+        const incoming = mappedObject || JSON.parse(raw);
+        const content = target === 'site.json'
+          ? normalizeSiteConfigForWrite(mergeObjects(current, incoming), siteId)
+          : mergeObjects(current, incoming);
         fs.writeFileSync(join(siteDir, target), JSON.stringify(content, null, 2), 'utf-8');
         summary.push({ file: file.relativePath || file.name, action: 'written', target });
         continue;
@@ -1044,15 +1152,72 @@ async function applySetupFiles(siteId, files) {
   return { summary, errors, filesApplied: summary.filter(s => s.action !== 'ignored').length };
 }
 
+function normalizeMappedJsonObject(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return null;
+}
+
+function summarize(value, maxChars = 12000) {
+  const text = String(value || '').replace(/\r\n/g, '\n').trim();
+  if (!text || text.length <= maxChars) return text;
+  const headLen = Math.max(1000, Math.floor(maxChars * 0.65));
+  const tailLen = Math.max(500, Math.floor(maxChars * 0.25));
+  const head = text.slice(0, headLen);
+  const tail = text.slice(-tailLen);
+  return `${head}\n\n...[truncated ${text.length - head.length - tail.length} chars]...\n\n${tail}`;
+}
+
+function normalizeSiteConfigForWrite(content = {}, siteId = '') {
+  const out = content && typeof content === 'object' && !Array.isArray(content) ? { ...content } : {};
+  const safeId = slugify(out.siteId || siteId || out.siteName || out.name || '');
+  out.siteId = safeId || siteId;
+  out.siteName = out.siteName || out.brandName || out.name || out.siteId || siteId;
+  out.domain = out.domain || out.website || out.siteUrl || out.url || '';
+  out.language = out.language || out.lang || out.locale || 'en';
+  out.positioning = out.positioning || out.brandPositioning || out.description || '';
+  if (typeof out.targetAudience === 'string') out.targetAudience = splitList(out.targetAudience);
+  if (!Array.isArray(out.targetAudience)) out.targetAudience = splitList(out.audience || out.audiences || '');
+  if (!Array.isArray(out.mustSay)) out.mustSay = splitList(out.mustSay || out.requiredClaims || '');
+  if (!Array.isArray(out.mustNotSay)) out.mustNotSay = splitList(out.mustNotSay || out.forbiddenClaims || '');
+  if (!out.writingStyle || typeof out.writingStyle !== 'object' || Array.isArray(out.writingStyle)) {
+    out.writingStyle = { tone: out.tone || '', sentenceStyle: '', avoidStyle: [] };
+  }
+  if (!out.internalLinkPriority) out.internalLinkPriority = ['pillarPages', 'categoryPages', 'productPages', 'blogPosts'];
+  if (!out.wordpress || typeof out.wordpress !== 'object' || Array.isArray(out.wordpress)) {
+    out.wordpress = { endpoint: out.domain || '', username: '', appPassword: '', defaultStatus: 'draft', categories: [], tags: [] };
+  }
+  return out;
+}
+
 function mergeObjects(a, b) {
   if (!a || typeof a !== 'object' || Array.isArray(a)) return b;
   if (!b || typeof b !== 'object' || Array.isArray(b)) return b ?? a;
   const out = { ...a };
   for (const [key, value] of Object.entries(b)) {
     if (value === undefined || value === null || value === '') continue;
-    if (Array.isArray(value)) out[key] = value.length ? value : out[key];
+    if (Array.isArray(value)) out[key] = value.length ? mergeArrays(out[key], value) : out[key];
     else if (typeof value === 'object') out[key] = mergeObjects(out[key], value);
     else out[key] = value;
+  }
+  return out;
+}
+
+function mergeArrays(a, b) {
+  const left = Array.isArray(a) ? a : [];
+  const right = Array.isArray(b) ? b : [];
+  const seen = new Set();
+  const out = [];
+  for (const item of [...left, ...right]) {
+    const key = typeof item === 'object' ? JSON.stringify(item) : String(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
   }
   return out;
 }
@@ -1103,7 +1268,7 @@ async function importSiteFiles(siteId, files) {
       const baseName = path.basename(rawName).toLowerCase();
       const dirName = path.dirname(rawName).replace(/\\/g, '/').toLowerCase();
       const buf = decodeImportFile(file);
-      const text = buf.toString('utf-8').replace(/^\uFEFF/, '');
+      const text = await importFileText(file);
 
       if (baseName === 'keywords.csv') {
         const report = await importKeywordsCsvDirect(siteId, text);
@@ -1113,8 +1278,8 @@ async function importSiteFiles(siteId, files) {
         continue;
       }
 
-      if (baseName.endsWith('.xlsx') && baseName.includes('keyword')) {
-        const report = await importKeywordsCsvDirect(siteId, await workbookToCsv(buf));
+      if (await isKeywordWorkbook(baseName, buf)) {
+        const report = await importKeywordsCsvDirect(siteId, await workbookToKeywordCsv(buf));
         importedKeywords += report.added;
         skippedDuplicates += report.skipped;
         summary.push({ file: rawName, action: 'keywords-xlsx-imported', target: 'keywords.csv', ...report });
@@ -1122,7 +1287,9 @@ async function importSiteFiles(siteId, files) {
       }
 
       if (['site.json', 'author.json', 'knowledge.json', 'links.json', 'style-reference.json'].includes(baseName)) {
-        fs.writeFileSync(join(siteDir, baseName), JSON.stringify(JSON.parse(text), null, 2), 'utf-8');
+        const parsed = JSON.parse(text);
+        const content = baseName === 'site.json' ? normalizeSiteConfigForWrite(parsed, siteId) : parsed;
+        fs.writeFileSync(join(siteDir, baseName), JSON.stringify(content, null, 2), 'utf-8');
         summary.push({ file: rawName, action: 'site-config-written', target: baseName, status: preview.status });
         continue;
       }
@@ -1182,28 +1349,57 @@ async function importKeywordsCsvDirect(siteId, csvText) {
   const existingSlugs = new Set(existingRows.map(r => String(r.urlslug || '').toLowerCase()));
   const existingKeywords = new Set(existingRows.map(r => String(r.keyword || '').trim().toLowerCase()).filter(Boolean));
   const merged = [...existingRows];
+  const rowBySlug = new Map(merged.map(row => [String(row.urlslug || '').toLowerCase(), row]));
+  const rowByKeyword = new Map(merged.map(row => [String(row.keyword || '').trim().toLowerCase(), row]).filter(([key]) => key));
   let added = 0;
   let skipped = 0;
+  let updated = 0;
   for (const row of incomingRows) {
     const slug = String(row.urlslug || '').toLowerCase();
     const keyword = String(row.keyword || '').trim().toLowerCase();
     if (existingSlugs.has(slug) || (keyword && existingKeywords.has(keyword))) {
+      const existing = rowBySlug.get(slug) || rowByKeyword.get(keyword);
+      if (existing && mergeKeywordRow(existing, row)) updated++;
       skipped++;
       continue;
     }
     merged.push(row);
     existingSlugs.add(slug);
     if (keyword) existingKeywords.add(keyword);
+    rowBySlug.set(slug, row);
+    if (keyword) rowByKeyword.set(keyword, row);
     added++;
   }
   fs.writeFileSync(csvPath, keywordRowsToCsv(merged), 'utf-8');
   stores.delete(siteId);
-  return { added, skipped, total: incomingRows.length };
+  return { added, skipped, updated, total: incomingRows.length };
+}
+
+function mergeKeywordRow(existing, incoming) {
+  let changed = false;
+  for (const [key, value] of Object.entries(incoming || {})) {
+    const next = String(value || '').trim();
+    if (!next) continue;
+    if (String(existing[key] || '').trim() !== next) {
+      existing[key] = next;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function decodeImportFile(file) {
   if (file.encoding === 'base64') return Buffer.from(String(file.content || ''), 'base64');
   return Buffer.from(String(file.content ?? file.text ?? ''), 'utf-8');
+}
+
+async function importFileText(file) {
+  const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
+  const baseName = path.basename(rawName).toLowerCase();
+  const buf = decodeImportFile(file);
+  if (baseName.endsWith('.xlsx')) return workbookToMarkdown(buf);
+  if (baseName.endsWith('.docx')) return docxToText(buf);
+  return buf.toString('utf-8').replace(/^\uFEFF/, '');
 }
 
 function readKeywordRows(csvText) {
@@ -1229,19 +1425,420 @@ function keywordRowsToCsv(rows) {
 }
 
 function isBinaryImport(name) {
-  return /\.xlsx$/i.test(name);
+  return /\.(xlsx|docx)$/i.test(name);
+}
+
+async function isKeywordWorkbook(baseName, buffer) {
+  if (!/\.xlsx$/i.test(baseName)) return false;
+  if (/(?:keyword|keywords|cluster|关键词|聚类)/i.test(baseName)) return true;
+  const { header } = await findKeywordSheet(buffer).catch(async () => findKeywordSheetRaw(buffer).catch(() => ({})));
+  return Boolean(header);
+}
+
+function isKnowledgeWorkbookName(baseName) {
+  return /\.xlsx$/i.test(baseName) && /(?:d1a|d1b|认知|知识库|knowledge|category)/i.test(baseName);
+}
+
+async function workbookToKeywordCsv(buffer) {
+  let found;
+  try {
+    found = await findKeywordSheet(buffer);
+  } catch {
+    return rawWorkbookToKeywordCsv(buffer);
+  }
+  if (!found.header) return workbookToCsv(buffer);
+  const rows = [];
+  const columns = ['blogid','keyword','urlslug','priority','intent','articletype','secondarykeywords','direction','pillartarget','volume','kd','cannibalcheck'];
+  rows.push(columns.join(','));
+  for (let r = found.headerRow + 1; r <= found.sheet.rowCount; r++) {
+    const source = found.sheet.getRow(r);
+    const out = {};
+    for (const [target, col] of Object.entries(found.map)) out[target] = excelCellText(source.getCell(col));
+    if (!out.keyword || /^\[.*\]$/.test(out.keyword)) continue;
+    if (out.priority) out.priority = normalizePriority(out.priority);
+    if (out.articletype) out.articletype = normalizeArticleType(out.articletype);
+    if (out.urlslug) out.urlslug = slugFromUrlOrText(out.urlslug);
+    if (!out.urlslug) out.urlslug = slugify(out.keyword);
+    if (!out.pillartarget && /^\/|^https?:/i.test(out.urlslug || '')) out.pillartarget = out.urlslug;
+    rows.push(columns.map(col => csvCell(out[col] || '')).join(','));
+  }
+  return rows.join('\n') + '\n';
+}
+
+async function rawWorkbookToKeywordCsv(buffer) {
+  const found = await findKeywordSheetRaw(buffer);
+  if (!found.header) throw new Error('No keyword sheet header found in workbook');
+  const columns = ['blogid','keyword','urlslug','priority','intent','articletype','secondarykeywords','direction','pillartarget','volume','kd','cannibalcheck'];
+  const lines = [columns.join(',')];
+  for (let r = found.headerRow + 1; r < found.rows.length; r++) {
+    const source = found.rows[r] || [];
+    const out = {};
+    for (const [target, col] of Object.entries(found.map)) out[target] = source[col] || '';
+    if (!out.keyword || /^\[.*\]$/.test(out.keyword)) continue;
+    if (out.priority) out.priority = normalizePriority(out.priority);
+    if (out.articletype) out.articletype = normalizeArticleType(out.articletype);
+    const targetUrl = out.urlslug || out.pillartarget || '';
+    if (out.urlslug) out.urlslug = slugFromUrlOrText(out.urlslug);
+    if (!out.urlslug) out.urlslug = slugify(out.keyword);
+    if (!out.pillartarget && /^\/|^https?:/i.test(targetUrl)) out.pillartarget = targetUrl;
+    lines.push(columns.map(col => csvCell(out[col] || '')).join(','));
+  }
+  return lines.join('\n') + '\n';
+}
+
+async function findKeywordSheet(buffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheets = [...workbook.worksheets].sort((a, b) => keywordSheetScore(b) - keywordSheetScore(a));
+  for (const sheet of sheets) {
+    const maxRows = Math.min(sheet.rowCount || 0, 30);
+    for (let r = 1; r <= maxRows; r++) {
+      const row = sheet.getRow(r);
+      const map = {};
+      for (let c = 1; c <= Math.max(sheet.columnCount || 0, 1); c++) {
+        const key = normalizeHeader(excelCellText(row.getCell(c)));
+        if (!key) continue;
+        for (const [target, aliases] of Object.entries(KEYWORD_COLUMN_ALIASES)) {
+          if (aliases.map(normalizeHeader).includes(key) && !map[target]) map[target] = c;
+        }
+      }
+      if (map.keyword && (map.urlslug || map.direction || map.blogid)) return { workbook, sheet, headerRow: r, map, header: true };
+    }
+  }
+  return { workbook, sheet: workbook.worksheets[0], header: false, map: {}, headerRow: 0 };
+}
+
+function keywordSheetScore(sheet) {
+  const name = String(sheet.name || '').toLowerCase();
+  let score = 0;
+  if (name.includes('keywords_csv')) score += 100;
+  if (name.includes('kw') || name.includes('keyword') || name.includes('关键词')) score += 50;
+  if (name.includes('cluster') || name.includes('聚类')) score += 20;
+  return score;
+}
+
+function normalizeHeader(value) {
+  return String(value || '').toLowerCase().replace(/\([^)]*\)/g, '').replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function normalizePriority(value) {
+  const match = String(value || '').match(/P[123]/i);
+  return match ? match[0].toUpperCase() : String(value || '').trim();
+}
+
+function normalizeArticleType(value) {
+  const text = String(value || '').toLowerCase();
+  if (/howto|how-to|教程|操作/.test(text)) return 'how-to';
+  if (/comparison|对比/.test(text)) return 'comparison';
+  if (/price|价格/.test(text)) return 'price-guide';
+  if (/pillar|支柱/.test(text)) return 'pillar';
+  if (/guide|buying|购买|选购|article/.test(text)) return 'buying-guide';
+  if (/faq|问答/.test(text)) return 'faq';
+  return text.trim();
+}
+
+function slugFromUrlOrText(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const cleaned = text.replace(/^https?:\/\/[^/]+/i, '').replace(/^\/?blog\//i, '').replace(/^\/+|\/+$/g, '');
+  return slugify(cleaned || text);
+}
+
+async function workbookToKnowledgeJson(buffer, baseName = '') {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const out = {
+    terminology: [],
+    authorityFacts: [],
+    buyerFAQ: [],
+    buyerQuestions: [],
+    objections: [],
+    sellingPoints: [],
+    rawNotes: [],
+  };
+  for (const sheet of workbook.worksheets) {
+    const sheetName = sheet.name || '';
+    if (/使用指南|内容选题池|SEO关键词速查/i.test(sheetName)) continue;
+    const markdown = sheetToMarkdown(sheet, 80);
+    if (!markdown.trim()) continue;
+    out.rawNotes.push({ source: `${baseName}:${sheetName}`, content: markdown });
+    if (/术语/i.test(sheetName)) out.terminology.push(...sheetRowsFromHeader(sheet, ['中文术语', '英文术语', '含义/说明']).map(r => ({ zh: r[0], en: r[1], definition: r[2] })).filter(x => x.zh || x.en));
+    if (/问题|顾虑|FAQ/i.test(sheetName)) out.buyerFAQ.push(...sheetRowsFromHeader(sheet, ['买家问题', '标准回答']).map(r => ({ question: r[0], answer: r[1] })).filter(x => x.question || x.answer));
+    if (/卖点|价值/i.test(sheetName)) out.sellingPoints.push(...sheetRowsFromHeader(sheet, ['卖点名称', '具体描述']).map(r => ({ title: r[0], detail: r[1] })).filter(x => x.title || x.detail));
+  }
+  out.authorityFacts = out.rawNotes.slice(0, 12).map(item => `${item.source}\n${item.content.slice(0, 1200)}`);
+  return out;
+}
+
+function sheetRowsFromHeader(sheet, expectedHeaders = []) {
+  const rows = [];
+  let headerRow = 0;
+  let cols = [];
+  for (let r = 1; r <= Math.min(sheet.rowCount || 0, 30); r++) {
+    const values = [];
+    for (let c = 1; c <= Math.max(sheet.columnCount || 0, 1); c++) values.push(excelCellText(sheet.getRow(r).getCell(c)));
+    if (expectedHeaders.every(header => values.some(value => normalizeHeader(value).includes(normalizeHeader(header))))) {
+      headerRow = r;
+      cols = expectedHeaders.map(header => values.findIndex(value => normalizeHeader(value).includes(normalizeHeader(header))) + 1);
+      break;
+    }
+  }
+  if (!headerRow || cols.some(col => col < 1)) return rows;
+  for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
+    const values = cols.map(col => excelCellText(sheet.getRow(r).getCell(col)));
+    if (values.some(Boolean)) rows.push(values);
+  }
+  return rows;
+}
+
+async function workbookToMarkdown(buffer) {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    return workbook.worksheets.map(sheet => `## ${sheet.name}\n${sheetToMarkdown(sheet, 120)}`).join('\n\n');
+  } catch {
+    const sheets = await rawWorkbookSheets(buffer);
+    return sheets.map(sheet => `## ${sheet.name}\n${sheet.rows.slice(0, 120).map(row => row.join(' | ')).join('\n')}`).join('\n\n');
+  }
+}
+
+function sheetToMarkdown(sheet, maxRows = 120) {
+  const lines = [];
+  const maxCol = Math.max(sheet.columnCount || 0, 1);
+  for (let r = 1; r <= Math.min(sheet.rowCount || 0, maxRows); r++) {
+    const row = sheet.getRow(r);
+    const values = [];
+    for (let c = 1; c <= maxCol; c++) values.push(excelCellText(row.getCell(c)));
+    if (values.some(Boolean)) lines.push(values.join(' | '));
+  }
+  return lines.join('\n');
+}
+
+async function docxToText(buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const doc = zip.file('word/document.xml');
+  if (!doc) return '';
+  const xml = await doc.async('string');
+  return decodeXmlEntities(xml
+    .replace(/<w:tab\/>/g, '\t')
+    .replace(/<w:br\/>/g, '\n')
+    .replace(/<\/w:p>/g, '\n')
+    .replace(/<[^>]+>/g, ''))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s+/g, '\n')
+    .trim();
+}
+
+function decodeXmlEntities(value) {
+  return String(value || '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+function docxTextToAuthorJson(text) {
+  const name = firstMatch(text, /姓名\s*([A-Za-z][A-Za-z\s.'-]{2,80})/) || firstMatch(text, /([A-Za-z][A-Za-z\s.'-]{2,80})\s*[·｜|]\s*D2-C/i) || '';
+  const title = firstMatch(text, /职业\s*([^\n]+)/) || '';
+  const storyBank = [];
+  const chunks = String(text || '').split(/\n(?=(?:故事|Story|#|\d+[\.、]))/i).map(s => s.trim()).filter(s => s.length > 80);
+  for (const chunk of chunks.slice(0, 120)) storyBank.push({ title: chunk.split('\n')[0].slice(0, 80), detail: chunk.slice(0, 1200) });
+  return {
+    name,
+    title,
+    background: summarize(text, 5000),
+    writingStyle: '',
+    storyBank,
+  };
+}
+
+function docxTextToSiteJson(text) {
+  const siteName = firstMatch(text, /品牌名称[:：]\s*([^\s\n]+)/) || '';
+  const domain = firstMatch(text, /域名[:：]\s*([^\s\n]+)/) || '';
+  const positioning = firstMatch(text, /【品牌一句话定位】\s*([\s\S]*?)(?=\n【|\n===|$)/) || '';
+  const tone = firstMatch(text, /(?:写作语气|品牌语气|语气)[:：]\s*([^\n]+)/) || '';
+  return normalizeSiteConfigForWrite({
+    siteName,
+    domain: domain ? (domain.startsWith('http') ? domain : `https://${domain}`) : '',
+    language: 'en',
+    positioning: positioning.trim(),
+    targetAudience: splitList(firstMatch(text, /(?:核心买家|目标受众|我们为谁而存在)[：:】]?\s*([^\n]+)/) || ''),
+    writingStyle: { tone: tone || 'clear, practical, specific', sentenceStyle: '', avoidStyle: [] },
+    mustSay: extractLinesAfter(text, /(?:必须表达|允许使用|品牌承诺)/, 20),
+    mustNotSay: extractLinesAfter(text, /(?:禁止表达|绝对禁止|我们不是什么)/, 20),
+  });
+}
+
+function markdownToLinksJson(text) {
+  const out = { pillarPages: [], blogPosts: [], productPages: [], categoryPages: [], trustPages: [] };
+  for (const rawLine of String(text || '').split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const parts = line.split(/\t|\s{2,}|\s*\|\s*/).map(p => p.trim()).filter(Boolean);
+    if (parts.length < 3 || !/^https?:|^\//.test(parts[1] || '')) continue;
+    const item = { anchorText: parts[2], url: parts[1], topic: parts[0], keywords: [], status: parts[3] || '' };
+    const type = parts[0].toLowerCase();
+    if (type.includes('category')) out.categoryPages.push(item);
+    else if (type.includes('product') || type.includes('shop')) out.productPages.push(item);
+    else if (type.includes('blog')) out.blogPosts.push(item);
+    else if (type.includes('guide') || type.includes('pillar')) out.pillarPages.push(item);
+    else out.trustPages.push(item);
+  }
+  return out;
+}
+
+function firstMatch(text, regex) {
+  const match = String(text || '').match(regex);
+  return match ? String(match[1] || '').trim() : '';
+}
+
+function extractLinesAfter(text, regex, max = 12) {
+  const source = String(text || '');
+  const match = source.match(regex);
+  if (!match) return [];
+  return source.slice(match.index).split(/\r?\n/).slice(1, max + 1).map(line => line.replace(/^[-*•\d.、\s]+/, '').trim()).filter(line => line.length > 5);
 }
 
 async function workbookToCsv(buffer) {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
-  const sheet = workbook.worksheets[0];
-  if (!sheet) throw new Error('XLSX has no worksheets');
-  const rows = [];
-  sheet.eachRow({ includeEmpty: false }, row => {
-    rows.push(row.values.slice(1).map(value => csvCell(value == null ? '' : String(value))).join(','));
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) throw new Error('XLSX has no worksheets');
+    const rows = [];
+    const maxCol = Math.max(sheet.columnCount || 0, 1);
+    sheet.eachRow({ includeEmpty: false }, row => {
+      const values = [];
+      for (let col = 1; col <= maxCol; col++) {
+        values.push(csvCell(excelCellText(row.getCell(col))));
+      }
+      if (values.some(value => String(value).replace(/^"|"$/g, '').trim())) rows.push(values.join(','));
+    });
+    return rows.join('\n') + '\n';
+  } catch {
+    const sheets = await rawWorkbookSheets(buffer);
+    const sheet = sheets[0];
+    if (!sheet) throw new Error('XLSX has no worksheets');
+    return sheet.rows.filter(row => row.some(Boolean)).map(row => row.map(csvCell).join(',')).join('\n') + '\n';
+  }
+}
+
+function excelCellText(cell) {
+  if (!cell) return '';
+  const value = cell.value;
+  if (value == null) return '';
+  if (cell.text && String(cell.text).trim()) return String(cell.text).trim();
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'object') {
+    if (Array.isArray(value.richText)) return value.richText.map(part => part.text || '').join('').trim();
+    if (value.result != null) return String(value.result).trim();
+    if (value.text != null) return String(value.text).trim();
+    if (value.hyperlink && value.displayText) return String(value.displayText).trim();
+    return JSON.stringify(value);
+  }
+  return String(value).trim();
+}
+
+async function findKeywordSheetRaw(buffer) {
+  const sheets = await rawWorkbookSheets(buffer);
+  const ordered = [...sheets].sort((a, b) => keywordRawSheetScore(b) - keywordRawSheetScore(a));
+  for (const sheet of ordered) {
+    for (let r = 0; r < Math.min(sheet.rows.length, 30); r++) {
+      const row = sheet.rows[r] || [];
+      const map = {};
+      row.forEach((value, c) => {
+        const key = normalizeHeader(value);
+        if (!key) return;
+        for (const [target, aliases] of Object.entries(KEYWORD_COLUMN_ALIASES)) {
+          if (aliases.map(normalizeHeader).includes(key) && map[target] == null) map[target] = c;
+        }
+      });
+      if (map.keyword && (map.urlslug != null || map.direction != null || map.blogid != null)) {
+        return { sheet, rows: sheet.rows, headerRow: r, map, header: true };
+      }
+    }
+  }
+  return { sheet: ordered[0], rows: ordered[0]?.rows || [], header: false, map: {}, headerRow: 0 };
+}
+
+function keywordRawSheetScore(sheet) {
+  const name = String(sheet.name || '').toLowerCase();
+  let score = 0;
+  if (name.includes('新博客') || name.includes('规划')) score += 80;
+  if (name.includes('keywords_csv')) score += 100;
+  if (name.includes('kw') || name.includes('keyword') || name.includes('关键词')) score += 50;
+  if (name.includes('cluster') || name.includes('聚类')) score += 20;
+  return score;
+}
+
+async function rawWorkbookSheets(buffer) {
+  const zip = await JSZip.loadAsync(buffer);
+  const workbookXml = await zip.file('xl/workbook.xml')?.async('string');
+  const relsXml = await zip.file('xl/_rels/workbook.xml.rels')?.async('string');
+  if (!workbookXml || !relsXml) throw new Error('XLSX workbook metadata missing');
+  const sharedStrings = await rawSharedStrings(zip);
+  const rels = new Map();
+  for (const match of relsXml.matchAll(/<Relationship\b[^>]*>/g)) {
+    const tag = match[0];
+    const id = (tag.match(/\bId="([^"]+)"/) || [])[1];
+    const target = (tag.match(/\bTarget="([^"]+)"/) || [])[1];
+    if (id && target) rels.set(id, normalizeZipPath(target, 'xl'));
+  }
+  const sheets = [];
+  for (const match of workbookXml.matchAll(/<(?:\w+:)?sheet\b[^>]*name="([^"]+)"[^>]*(?:r:id|id)="([^"]+)"[^>]*>/g)) {
+    const name = decodeXmlEntities(match[1]);
+    const target = rels.get(match[2]);
+    if (!target) continue;
+    const xml = await zip.file(target)?.async('string');
+    if (!xml) continue;
+    sheets.push({ name, rows: parseRawWorksheet(xml, sharedStrings) });
+  }
+  return sheets;
+}
+
+async function rawSharedStrings(zip) {
+  const file = zip.file('xl/sharedStrings.xml');
+  if (!file) return [];
+  const xml = await file.async('string');
+  return [...xml.matchAll(/<(?:\w+:)?si\b[\s\S]*?<\/(?:\w+:)?si>/g)].map(match => {
+    return decodeXmlEntities([...match[0].matchAll(/<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g)].map(part => part[1]).join(''));
   });
-  return rows.join('\n') + '\n';
+}
+
+function parseRawWorksheet(xml, sharedStrings = []) {
+  const rows = [];
+  for (const rowMatch of xml.matchAll(/<(?:\w+:)?row\b[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/(?:\w+:)?row>/g)) {
+    const rowIndex = Number(rowMatch[1]) - 1;
+    const row = rows[rowIndex] || [];
+    for (const cellMatch of rowMatch[2].matchAll(/<(?:\w+:)?c\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?c>|<(?:\w+:)?c\b([^>]*)\/>/g)) {
+      const attrs = cellMatch[1] || cellMatch[3] || '';
+      const body = cellMatch[2] || '';
+      const ref = (attrs.match(/\br="([^"]+)"/) || [])[1] || '';
+      const colIndex = columnNameToIndex((ref.match(/[A-Z]+/i) || ['A'])[0]);
+      const type = (attrs.match(/\bt="([^"]+)"/) || [])[1] || '';
+      let value = '';
+      const v = (body.match(/<(?:\w+:)?v>([\s\S]*?)<\/(?:\w+:)?v>/) || [])[1];
+      if (type === 's' && v != null) value = sharedStrings[Number(v)] || '';
+      else if (v != null) value = v;
+      else value = [...body.matchAll(/<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/g)].map(part => part[1]).join('');
+      row[colIndex] = decodeXmlEntities(value).trim();
+    }
+    rows[rowIndex] = row;
+  }
+  return rows.filter(row => row && row.some(Boolean));
+}
+
+function normalizeZipPath(target, base = '') {
+  let out = String(target || '').replace(/^\/+/, '');
+  if (!out.startsWith('xl/') && base) out = `${base}/${out}`;
+  return out.replace(/\/[^/]+\/\.\.\//g, '/');
+}
+
+function columnNameToIndex(name) {
+  let n = 0;
+  for (const ch of String(name || 'A').toUpperCase()) n = n * 26 + ch.charCodeAt(0) - 64;
+  return Math.max(0, n - 1);
 }
 
 function csvCell(value) {
@@ -1856,13 +2453,16 @@ async function publishToWordPress(siteId, slug, opts = {}) {
   if (opts.categories) body.categories = Array.isArray(opts.categories) ? opts.categories : String(opts.categories).split(',').map(Number).filter(Boolean);
   if (opts.tags) body.tags = Array.isArray(opts.tags) ? opts.tags : String(opts.tags).split(',').map(Number).filter(Boolean);
 
-  const response = await fetch(endpoint, {
+  const response = await fetchWordPressWithRetry(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'User-Agent': 'ContentEngine/1.0 WordPressPublisher',
       Authorization: `Basic ${Buffer.from(`${username}:${String(appPassword).replace(/\s+/g, '')}`).toString('base64')}`,
     },
     body: JSON.stringify(body),
+    timeoutMs: Number(opts.timeoutMs) || 45000,
+    retries: Number(opts.retries) || 3,
   });
   const data = await response.json().catch(async () => ({ raw: await response.text().catch(() => '') }));
   if (!response.ok) {
@@ -1878,6 +2478,44 @@ async function publishToWordPress(siteId, slug, opts = {}) {
     seoTitle,
     metaDescription,
   };
+}
+
+async function fetchWordPressWithRetry(url, options = {}) {
+  const retries = Math.max(1, Number(options.retries) || 3);
+  const timeoutMs = Math.max(10000, Number(options.timeoutMs) || 45000);
+  let lastError = null;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      if ((response.status === 429 || response.status >= 500) && attempt < retries) {
+        lastError = new Error(`HTTP ${response.status}`);
+        await sleep(900 * attempt);
+        continue;
+      }
+      return response;
+    } catch (err) {
+      clearTimeout(timer);
+      lastError = err;
+      if (attempt < retries) {
+        await sleep(1000 * attempt);
+        continue;
+      }
+    }
+  }
+  throw new Error(`WordPress connection failed after ${retries} attempts: ${formatFetchError(lastError)}`);
+}
+
+function formatFetchError(err) {
+  if (!err) return 'unknown error';
+  const parts = [err.message, err.code, err.type, err.cause?.code, err.cause?.message].filter(Boolean);
+  return [...new Set(parts)].join(' / ') || String(err);
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function normalizeWpEndpoint(value = '') {
