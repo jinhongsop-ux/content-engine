@@ -59,7 +59,8 @@ button, input, textarea, select { font-family:inherit; }
 .stat { background:var(--bg); padding:10px 14px; }
 .stat-n { font-size:22px; font-weight:600; color:var(--text); line-height:1; }
 .stat-l { font-size:11px; color:var(--text3); margin-top:3px; }
-.left-ctrl { padding:10px 12px; border-bottom:.5px solid var(--border); display:flex; flex-direction:column; gap:7px; }
+.left-section-title { padding:8px 12px 4px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); }
+.left-ctrl { padding:6px 12px 10px; border-bottom:.5px solid var(--border); display:flex; flex-direction:column; gap:7px; }
 .ctrl-row { display:flex; gap:6px; }
 .conc-row { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2); }
 .conc-row input[type=range] { flex:1; }
@@ -68,8 +69,12 @@ button, input, textarea, select { font-family:inherit; }
 .prog-bar { height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
 .prog-fill { height:100%; background:var(--blue); border-radius:2px; width:0; transition:width .3s; }
 .prog-lbl { font-size:11px; color:var(--text3); margin-top:4px; }
-.log-head { padding:8px 12px 4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); }
+.sidebar-note { padding:8px 12px; border-bottom:.5px solid var(--border); font-size:11px; line-height:1.55; color:var(--text2); background:var(--bg2); }
+.log-head { padding:8px 12px 4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); display:flex; align-items:center; gap:6px; }
+.log-head span { flex:1; }
+.log-tools { display:flex; gap:5px; letter-spacing:0; text-transform:none; font-weight:500; }
 .log-area { flex:1; overflow-y:auto; padding:0 12px 10px; }
+.log-area.collapsed { display:none; }
 .log-line { font-size:11px; font-family:'SF Mono','Consolas',monospace; line-height:1.7; border-bottom:.5px solid var(--border); padding:2px 0; color:var(--text3); }
 .log-line.ok { color:var(--green); }
 .log-line.err { color:var(--red); }
@@ -77,6 +82,15 @@ button, input, textarea, select { font-family:inherit; }
 
 .table-toolbar, .section-toolbar { display:flex; align-items:center; gap:8px; padding:9px 14px; background:var(--bg); border-bottom:.5px solid var(--border); flex-shrink:0; }
 .toolbar-title { font-size:13px; font-weight:500; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.task-toolbar { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--bg); border-bottom:.5px solid var(--border); flex-wrap:wrap; flex-shrink:0; }
+.filter-chip { border:.5px solid var(--border); background:var(--bg); color:var(--text2); border-radius:999px; padding:5px 10px; font-size:12px; cursor:pointer; }
+.filter-chip:hover { background:var(--bg2); }
+.filter-chip.on { color:var(--blue); border-color:var(--blue); background:var(--blue-bg); }
+.task-search { width:240px; border:.5px solid var(--border2); border-radius:var(--r); padding:6px 9px; background:var(--bg); color:var(--text); font-size:12px; }
+.task-summary { display:flex; align-items:center; gap:10px; color:var(--text3); font-size:11px; margin-left:auto; }
+.batch-bar { display:none; align-items:center; gap:8px; padding:8px 14px; background:var(--blue-bg); border-bottom:.5px solid var(--border); color:var(--blue); flex-shrink:0; }
+.batch-bar.show { display:flex; }
+.batch-count { font-size:12px; font-weight:600; margin-right:4px; }
 .table-wrap { flex:1; overflow:auto; }
 table { width:100%; border-collapse:collapse; font-size:12px; min-width:960px; }
 thead th { background:var(--bg2); padding:7px 10px; text-align:left; font-size:10px; font-weight:600; letter-spacing:.04em; color:var(--text3); border-bottom:.5px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:10; }
@@ -134,16 +148,44 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
 .logic-card textarea { width:100%; min-height:84px; border:.5px solid var(--border2); border-radius:var(--r); background:var(--bg); color:var(--text); padding:7px; resize:vertical; font-size:12px; }
 .weight-row { display:grid; grid-template-columns:110px 1fr 42px; align-items:center; gap:8px; margin-bottom:8px; font-size:12px; color:var(--text2); }
 .weight-total { font-size:12px; font-weight:600; color:var(--text); margin:8px 0; }
+.import-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:10px; }
+.import-step { border:.5px solid var(--border); border-radius:var(--r); background:var(--bg); padding:9px 10px; min-height:58px; }
+.import-step.on { border-color:var(--blue); background:var(--blue-bg); color:var(--blue); }
+.import-step.done { border-color:var(--green); background:var(--green-bg); color:var(--green); }
+.import-step-num { font-size:10px; font-weight:700; letter-spacing:.06em; color:inherit; opacity:.75; margin-bottom:4px; }
+.import-step-title { font-size:12px; font-weight:600; color:inherit; }
+.import-step-desc { font-size:11px; color:var(--text3); margin-top:3px; line-height:1.4; }
+.import-status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; margin-bottom:10px; }
+.import-status-card { border:.5px solid var(--border); border-radius:var(--r); background:var(--bg2); padding:9px 10px; }
+.import-status-card strong { display:block; font-size:16px; color:var(--text); margin-bottom:2px; }
+.import-result { display:none; border:.5px solid var(--border); border-radius:var(--r); padding:9px 10px; margin:10px 0; font-size:12px; line-height:1.7; }
+.import-result.show { display:block; }
+.import-result.ok { background:var(--green-bg); color:var(--green); border-color:var(--green); }
+.import-result.err { background:var(--red-bg); color:var(--red); border-color:var(--red); }
+.setup-drop { border:1px dashed var(--border2); border-radius:var(--r-lg); background:var(--bg2); padding:18px; text-align:center; color:var(--text2); margin-bottom:10px; transition:background .12s,border-color .12s,color .12s; }
+.setup-drop.dragover { background:var(--blue-bg); border-color:var(--blue); color:var(--blue); }
+.setup-drop strong { display:block; font-size:13px; color:var(--text); margin-bottom:5px; }
 
 .drawer { position:fixed; left:50%; right:auto; top:60px; bottom:20px; width:min(1280px,calc(100vw - 40px)); background:var(--bg); border:.5px solid var(--border); border-radius:var(--r-lg); display:flex; flex-direction:column; transform:translate(-50%,calc(100% + 90px)); transition:transform .22s ease; z-index:200; box-shadow:0 18px 50px rgba(0,0,0,.22); overflow:hidden; }
 .drawer.open { transform:translate(-50%,0); }
 .drawer-head { display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:.5px solid var(--border); background:var(--bg2); flex-shrink:0; }
 .drawer-kw { font-size:13px; font-weight:500; color:var(--text); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.drawer-meta { margin-left:8px; font-size:11px; font-weight:400; color:var(--text3); }
 .tabs { display:flex; border-bottom:.5px solid var(--border); background:var(--bg); flex-shrink:0; overflow-x:auto; }
+.drawer .tabs { display:none; }
 .tab { padding:8px 14px; font-size:12px; font-weight:500; cursor:pointer; color:var(--text2); border-bottom:2px solid transparent; margin-bottom:-.5px; white-space:nowrap; }
 .tab.on { color:var(--blue); border-bottom-color:var(--blue); }
 .tab-pane { display:none; flex:1; overflow-y:auto; padding:18px 22px; }
 .tab-pane.on { display:block; }
+.workspace-body { flex:1; min-height:0; display:flex; background:var(--bg3); }
+.workspace-nav { width:190px; flex-shrink:0; border-right:.5px solid var(--border); background:var(--bg); padding:10px; display:flex; flex-direction:column; gap:6px; }
+.workspace-nav-btn { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; border:.5px solid transparent; border-radius:var(--r); background:transparent; color:var(--text2); padding:8px 9px; text-align:left; cursor:pointer; font-size:12px; }
+.workspace-nav-btn:hover { background:var(--bg2); }
+.workspace-nav-btn.on { border-color:var(--blue); background:var(--blue-bg); color:var(--blue); }
+.workspace-nav-badge { max-width:72px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; color:inherit; opacity:.75; }
+.workspace-status { margin-top:auto; border:.5px solid var(--border); border-radius:var(--r); background:var(--bg2); padding:9px; font-size:11px; line-height:1.6; color:var(--text2); }
+.workspace-canvas { flex:1; min-width:0; overflow:hidden; background:var(--bg); }
+.workspace-canvas .tab-pane { height:100%; }
 
 .drawer-tools { display:flex; justify-content:flex-end; gap:8px; margin:0 auto 12px; max-width:920px; }
 #drawerOutline, #drawerPreview { max-width:920px; margin:0 auto; }
@@ -154,6 +196,10 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
   .drawer { top:48px; bottom:0; width:100vw; border-radius:0; }
   .drawer-head { flex-wrap:wrap; }
   .tab-pane { padding:14px 12px; }
+  .workspace-body { flex-direction:column; }
+  .workspace-nav { width:100%; flex-direction:row; overflow-x:auto; border-right:0; border-bottom:.5px solid var(--border); }
+  .workspace-nav-btn { min-width:118px; }
+  .workspace-status { display:none; }
 }
 
 .article-render { font-size:14px; line-height:1.8; color:var(--text); }
@@ -227,11 +273,10 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
   <select class="site-sel" id="siteSel" onchange="switchSite(this.value)"><option>加载中…</option></select>
   <button class="btn btn-sm site-manage-btn" onclick="openSiteManager()">站点管理</button>
   <div class="nav-tabs">
-    <button class="nav-tab on" data-panel="keywords" onclick="switchPanel('keywords')">关键词任务</button>
-    <button class="nav-tab" data-panel="config" onclick="switchPanel('config')">站点配置</button>
-    <button class="nav-tab" data-panel="logic" onclick="switchPanel('logic')">运行逻辑</button>
-    <button class="nav-tab" data-panel="model" onclick="switchPanel('model')">模型设置</button>
-    <button class="nav-tab" data-panel="files" onclick="switchPanel('files')">上传文件管理</button>
+    <button class="nav-tab on" data-panel="keywords" onclick="switchPanel('keywords')">内容任务</button>
+    <button class="nav-tab" data-panel="config" onclick="switchPanel('config')">站点资料库</button>
+    <button class="nav-tab" data-panel="files" onclick="switchPanel('files')">导入中心</button>
+    <button class="nav-tab" data-panel="settings" onclick="switchPanel('settings')">设置</button>
   </div>
   <span class="sp"></span>
   <input class="api-inp" id="apiKey" type="password" placeholder="API 密钥（或设置环境变量）">
@@ -246,7 +291,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
   <div class="modal">
     <div class="modal-head">
       <span class="modal-title">站点管理 — 新增站点与初始资料</span>
-      <button class="btn btn-sm" onclick="switchPanel('files'); closeSiteManager()">打开上传文件管理</button>
+      <button class="btn btn-sm" onclick="switchPanel('files'); closeSiteManager()">打开导入中心</button>
       <button class="btn btn-icon" onclick="closeSiteManager()">✕</button>
     </div>
     <div class="modal-body">
@@ -275,7 +320,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
           <span class="card-title">初始资料上传流程</span>
         </div>
         <div class="hint" style="line-height:1.8">
-          创建成功后，系统会自动切换到新站点并打开「上传文件管理」。在那里上传品牌文档、作者档案、知识库、内链表、关键词表、样式参考和 Project 指令，识别结果会锁定到该新站点，避免和其它站点串数据。
+          创建成功后，系统会自动切换到新站点并打开「导入中心」。在那里上传品牌文档、作者档案、知识库、内链表、关键词表、样式参考和 Project 指令，识别结果会锁定到该新站点，避免和其它站点串数据。
         </div>
         <div class="form-actions" style="margin-top:10px">
           <button class="btn btn-blue" onclick="startInitialFileUploadFromModal()">为当前站点上传初始文件/ZIP</button>
@@ -299,6 +344,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       <div class="stat"><div class="stat-n" id="sQueued" style="color:var(--text3)">—</div><div class="stat-l">待生成</div></div>
       <div class="stat"><div class="stat-n" id="sFailed" style="color:var(--red)">—</div><div class="stat-l">失败</div></div>
     </div>
+    <div class="left-section-title">运行控制</div>
     <div class="left-ctrl">
       <div class="ctrl-row">
         <button class="btn btn-blue" style="flex:1" onclick="runSelectedArticles()">▶ 运行已选文章生成</button>
@@ -322,7 +368,14 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
       <div class="prog-lbl" id="progLbl"></div>
     </div>
-    <div class="log-head">运行日志</div>
+    <div class="sidebar-note" id="sidebarNote">先勾选关键词，再执行大纲、文章生成或发布。</div>
+    <div class="log-head">
+      <span>运行日志</span>
+      <div class="log-tools">
+        <button class="btn btn-sm" onclick="toggleLogArea(this)">折叠</button>
+        <button class="btn btn-sm" onclick="clearLog()">清空</button>
+      </div>
+    </div>
     <div class="log-area" id="log"></div>
   </aside>
 
@@ -331,6 +384,23 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       <div class="table-toolbar">
         <span class="toolbar-title" id="tableTitle">关键词规划表</span>
         <button class="btn btn-green btn-sm" onclick="toggleAddRow()">＋ 新增关键词</button>
+      </div>
+      <div class="task-toolbar">
+        <button class="filter-chip on" data-task-filter="all" onclick="setTaskFilter('all')">全部</button>
+        <button class="filter-chip" data-task-filter="queued" onclick="setTaskFilter('queued')">待生成</button>
+        <button class="filter-chip" data-task-filter="outlined" onclick="setTaskFilter('outlined')">大纲完成</button>
+        <button class="filter-chip" data-task-filter="done" onclick="setTaskFilter('done')">文章完成</button>
+        <button class="filter-chip" data-task-filter="failed" onclick="setTaskFilter('failed')">失败</button>
+        <input class="task-search" id="taskSearch" placeholder="搜索关键词 / slug / Blog ID" oninput="setTaskSearch(this.value)">
+        <div class="task-summary" id="taskSummary">—</div>
+      </div>
+      <div class="batch-bar" id="batchBar">
+        <span class="batch-count" id="batchCount">已选择 0 项</span>
+        <button class="btn btn-sm btn-blue" onclick="runSelectedOutlines()">生成已选大纲</button>
+        <button class="btn btn-sm btn-blue" onclick="runSelectedArticles()">生成已选文章</button>
+        <button class="btn btn-sm btn-green" onclick="publishSelectedWordPress(this)">发布已选到 WordPress</button>
+        <button class="btn btn-sm" onclick="resetSelected()">重置已选</button>
+        <button class="btn btn-sm" onclick="clearSelection()">取消选择</button>
       </div>
       <div class="table-wrap">
         <table id="kwTable">
@@ -381,6 +451,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
         <button class="subtab" onclick="switchSubtab('config','knowledge')">品类知识</button>
         <button class="subtab" onclick="switchSubtab('config','links')">内链库</button>
         <button class="subtab" onclick="switchSubtab('config','style-reference')">样式参考</button>
+        <button class="subtab" onclick="switchSubtab('config','project-instructions')">Project 指令</button>
       </div>
       <div class="scroll-panel">
         <div class="subpane on" id="config-site"></div>
@@ -388,6 +459,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
         <div class="subpane" id="config-knowledge"></div>
         <div class="subpane" id="config-links"></div>
         <div class="subpane" id="config-style-reference"></div>
+        <div class="subpane" id="config-project-instructions"></div>
       </div>
     </section>
 
@@ -409,7 +481,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
 
     <section class="panel" id="panel-files">
       <div class="section-toolbar">
-        <span class="toolbar-title">上传文件管理 — 当前站点变量数据与资料导入</span>
+        <span class="toolbar-title">导入中心 — 上传文件、AI 识别结果、字段映射与写入记录</span>
         <button class="btn btn-blue btn-sm" onclick="chooseSetupFiles()">上传资料文件/ZIP 并识别</button>
         <button class="btn btn-green btn-sm" onclick="applySelectedSetupFiles()">写入已勾选资料</button>
       </div>
@@ -424,6 +496,18 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
           </div>
         </div>
         <div class="config-card">
+          <div class="import-steps" id="importSteps">
+            <div class="import-step on" data-import-step="1"><div class="import-step-num">STEP 1</div><div class="import-step-title">确认站点</div><div class="import-step-desc" id="importSiteLock">当前站点：—</div></div>
+            <div class="import-step" data-import-step="2"><div class="import-step-num">STEP 2</div><div class="import-step-title">上传资料</div><div class="import-step-desc">支持 JSON / CSV / MD / XLSX / DOCX / ZIP</div></div>
+            <div class="import-step" data-import-step="3"><div class="import-step-num">STEP 3</div><div class="import-step-title">确认映射</div><div class="import-step-desc">只勾选要写入当前站点的文件</div></div>
+            <div class="import-step" data-import-step="4"><div class="import-step-num">STEP 4</div><div class="import-step-title">写入并刷新</div><div class="import-step-desc">写入后自动刷新配置与关键词</div></div>
+          </div>
+          <div class="import-status-grid" id="importStatusGrid"></div>
+          <div class="setup-drop" id="setupDrop" onclick="chooseSetupFiles()" ondragenter="setupDragEnter(event,this)" ondragover="setupDragOver(event,this)" ondragleave="setupDragLeave(event,this)" ondrop="dropSetupFiles(event,this)">
+            <strong>拖放资料文件或 ZIP 到这里</strong>
+            <span>也可以点击选择文件。建议优先上传标准的 site.json / author.json / knowledge.json / links.json / style-reference.json / project-instructions.md / keywords.csv。</span>
+          </div>
+          <div class="import-result" id="importResult"></div>
           <div class="form-actions" style="margin-bottom:10px">
             <button class="btn btn-blue" onclick="chooseSetupFiles()">上传资料文件/ZIP 并识别</button>
             <button class="btn btn-green" onclick="applySelectedSetupFiles()">写入已勾选资料</button>
@@ -436,12 +520,18 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       </div>
     </section>
 
-    <section class="panel" id="panel-model">
+    <section class="panel" id="panel-settings">
       <div class="section-toolbar">
-        <span class="toolbar-title">模型设置 — 选择常用模型或填写自定义接口</span>
+        <span class="toolbar-title">设置 — 文章模型、Gemini、WordPress 与默认策略</span>
         <button class="btn btn-green btn-sm" onclick="saveModelSettings(this)">保存模型设置</button>
       </div>
+      <div class="subtabs" id="settingsTabs">
+        <button class="subtab on" onclick="switchSubtab('settings','models')">文章模型 / Gemini</button>
+        <button class="subtab" onclick="switchSubtab('settings','wordpress')">WordPress</button>
+        <button class="subtab" onclick="switchSubtab('settings','strategy')">默认策略</button>
+      </div>
       <div class="scroll-panel">
+        <div class="subpane on" id="settings-models">
         <div class="config-card">
           <div class="form-grid">
             <div class="form-field">
@@ -480,6 +570,19 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
           <div class="form-actions"><button class="btn btn-green" onclick="saveModelSettings(this)">&#20445;&#23384; Gemini &#35774;&#32622;</button><button class="btn" onclick="resetGeminiSettings()">&#24674;&#22797; Gemini &#40664;&#35748;</button><span class="hint">&#24314;&#35758;&#40664;&#35748;&#20351;&#29992; gemini-3.1-flash-lite&#65292;&#36866;&#21512;&#22823;&#37327;&#32763;&#35793;&#21644;&#22270;&#29255; ALT &#35782;&#21035;&#12290;</span></div>
         </div>
         </div>
+        </div>
+        <div class="subpane" id="settings-wordpress"></div>
+        <div class="subpane" id="settings-strategy">
+          <div class="config-card">
+            <div class="card-head"><span class="card-title">默认策略</span><span class="hint">文章类型策略、Prompt 区块和 QA 规则仍沿用原有模板接口。</span></div>
+            <div class="form-actions">
+              <button class="btn btn-blue" onclick="switchPanel('logic')">打开默认策略编辑器</button>
+              <button class="btn" onclick="switchPanel('logic'); switchSubtab('logic','article-types')">文章类型策略</button>
+              <button class="btn" onclick="switchPanel('logic'); switchSubtab('logic','prompt-sections')">Prompt 区块</button>
+              <button class="btn" onclick="switchPanel('logic'); switchSubtab('logic','qa-rules')">QA 规则</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -487,7 +590,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
 
 <div class="drawer" id="drawer">
   <div class="drawer-head">
-    <span class="drawer-kw" id="drawerKw">—</span>
+    <span class="drawer-kw"><span id="drawerKw">—</span><span class="drawer-meta" id="drawerMeta"></span></span>
     <button class="btn btn-sm" onclick="copyHtml()">复制 HTML</button>
     <button class="btn btn-sm" onclick="dlHtml()">↓ 下载</button>
     <button class="btn btn-green btn-sm" onclick="publishWordPress()">发布WP草稿</button>
@@ -502,13 +605,27 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
     <div class="tab" onclick="switchDrawerTab('images')">&#22270;&#29255;&#37197;&#32622;</div>
     <div class="tab" onclick="switchDrawerTab('data')">数据包</div>
   </div>
-  <div class="tab-pane on" id="tp-outline"><div class="drawer-tools"><span class="drawer-translate-note">&#21482;&#29992;&#20110;&#26816;&#26597;&#30340;&#20013;&#25991;&#39044;&#35272;&#65292;&#19981;&#25913;&#21160;&#33521;&#25991;&#28304;&#25991;&#20214;</span><button class="btn btn-sm" id="outlineTranslateBtn" onclick="togglePreviewTranslation('outline')">&#32763;&#35793;&#25104;&#20013;&#25991;</button></div><div id="drawerOutline"></div></div>
-  <div class="tab-pane" id="tp-preview"><div class="drawer-tools"><span class="drawer-translate-note">&#21482;&#29992;&#20110;&#26816;&#26597;&#30340;&#20013;&#25991;&#39044;&#35272;&#65292;&#19981;&#25913;&#21160;&#33521;&#25991;&#28304;&#25991;&#20214;</span><button class="btn btn-sm" id="articleTranslateBtn" onclick="togglePreviewTranslation('article')">&#32763;&#35793;&#25104;&#20013;&#25991;</button></div><div class="article-render" id="drawerPreview"></div></div>
-  <div class="tab-pane" id="tp-source"><div class="src-box" id="drawerSource"></div></div>
-  <div class="tab-pane" id="tp-qa"><div id="drawerQa"></div></div>
-  <div class="tab-pane" id="tp-publish"><div id="publishPack"></div></div>
-  <div class="tab-pane" id="tp-images"><div id="imageConfig"></div></div>
-  <div class="tab-pane" id="tp-data"><div class="code-box" id="drawerData"></div></div>
+  <div class="workspace-body">
+    <aside class="workspace-nav">
+      <button class="workspace-nav-btn on" data-workspace-tab="outline" onclick="switchDrawerTab('outline')"><span>大纲</span><span class="workspace-nav-badge" data-workspace-state="outline">—</span></button>
+      <button class="workspace-nav-btn" data-workspace-tab="preview" onclick="switchDrawerTab('preview')"><span>正文</span><span class="workspace-nav-badge" data-workspace-state="preview">—</span></button>
+      <button class="workspace-nav-btn" data-workspace-tab="source" onclick="switchDrawerTab('source')"><span>HTML</span><span class="workspace-nav-badge" data-workspace-state="source">—</span></button>
+      <button class="workspace-nav-btn" data-workspace-tab="qa" onclick="switchDrawerTab('qa')"><span>QA</span><span class="workspace-nav-badge" data-workspace-state="qa">—</span></button>
+      <button class="workspace-nav-btn" data-workspace-tab="publish" onclick="switchDrawerTab('publish')"><span>发布</span><span class="workspace-nav-badge" data-workspace-state="publish">—</span></button>
+      <button class="workspace-nav-btn" data-workspace-tab="images" onclick="switchDrawerTab('images')"><span>图片</span><span class="workspace-nav-badge" data-workspace-state="images">—</span></button>
+      <button class="workspace-nav-btn" data-workspace-tab="data" onclick="switchDrawerTab('data')"><span>数据包</span><span class="workspace-nav-badge" data-workspace-state="data">—</span></button>
+      <div class="workspace-status" id="workspaceStatus">选择一篇文章后显示当前生产状态。</div>
+    </aside>
+    <div class="workspace-canvas">
+      <div class="tab-pane on" id="tp-outline"><div class="drawer-tools"><span class="drawer-translate-note">&#21482;&#29992;&#20110;&#26816;&#26597;&#30340;&#20013;&#25991;&#39044;&#35272;&#65292;&#19981;&#25913;&#21160;&#33521;&#25991;&#28304;&#25991;&#20214;</span><button class="btn btn-sm" id="outlineTranslateBtn" onclick="togglePreviewTranslation('outline')">&#32763;&#35793;&#25104;&#20013;&#25991;</button></div><div id="drawerOutline"></div></div>
+      <div class="tab-pane" id="tp-preview"><div class="drawer-tools"><span class="drawer-translate-note">&#21482;&#29992;&#20110;&#26816;&#26597;&#30340;&#20013;&#25991;&#39044;&#35272;&#65292;&#19981;&#25913;&#21160;&#33521;&#25991;&#28304;&#25991;&#20214;</span><button class="btn btn-sm" id="articleTranslateBtn" onclick="togglePreviewTranslation('article')">&#32763;&#35793;&#25104;&#20013;&#25991;</button></div><div class="article-render" id="drawerPreview"></div></div>
+      <div class="tab-pane" id="tp-source"><div class="src-box" id="drawerSource"></div></div>
+      <div class="tab-pane" id="tp-qa"><div id="drawerQa"></div></div>
+      <div class="tab-pane" id="tp-publish"><div id="publishPack"></div></div>
+      <div class="tab-pane" id="tp-images"><div id="imageConfig"></div></div>
+      <div class="tab-pane" id="tp-data"><div class="code-box" id="drawerData"></div></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -582,7 +699,9 @@ const MODEL_PRESETS = {
 let currentSite = '';
 let keywords = [];
 let selected = new Set();
-let configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{} };
+let taskFilter = 'all';
+let taskSearch = '';
+let configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{}, projectInstructions:'' };
 let templates = { 'article-types':{}, 'prompt-sections':{}, 'qa-rules':{} };
 let drawerSlug = '';
 let drawerHtml = '';
@@ -591,6 +710,8 @@ let drawerImagePlan = null;
 let previewTranslations = { outline:{ original:'', translated:'', showing:false }, article:{ original:'', translated:'', showing:false } };
 let setupFiles = [];
 let setupFilesSite = '';
+let setupRequiredItems = [];
+let lastImportResult = null;
 let siteLoadSeq = 0;
 
 init();
@@ -625,7 +746,7 @@ function resetSiteState(siteId = '') {
   currentSite = siteId;
   keywords = [];
   selected.clear();
-  configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{} };
+  configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{}, projectInstructions:'' };
   drawerSlug = '';
   drawerHtml = '';
   drawerPublishPack = null;
@@ -667,12 +788,15 @@ async function reloadKeywords(token = siteLoadSeq) {
 async function loadConfigs(token = siteLoadSeq) {
   if (!currentSite) return;
   const siteAtRequest = currentSite;
-  const nextConfigs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{} };
+  const nextConfigs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{}, projectInstructions:'' };
   for (const key of ['site','author','knowledge','links','style-reference']) {
     const res = await api('GET', `/sites/${siteAtRequest}/config/${key}`);
     if (token !== siteLoadSeq || siteAtRequest !== currentSite) return;
     if (res) nextConfigs[key] = res.content || {};
   }
+  const projectRes = await api('GET', `/sites/${siteAtRequest}/project-instructions`);
+  if (token !== siteLoadSeq || siteAtRequest !== currentSite) return;
+  if (projectRes) nextConfigs.projectInstructions = projectRes.content || '';
   configs = nextConfigs;
   document.getElementById('configSiteId').textContent = currentSite;
   renderConfig();
@@ -688,7 +812,8 @@ async function loadTemplates() {
 
 function switchPanel(name) {
   if (name === 'create') name = 'files';
-  document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('on', btn.dataset.panel === name));
+  const navName = name === 'logic' ? 'settings' : name;
+  document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('on', btn.dataset.panel === navName));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
   document.getElementById('panel-' + name)?.classList.add('on');
   if (name === 'files' && currentSite) loadSetupStatus();
@@ -717,7 +842,14 @@ function switchSubtab(group, name) {
 
 function renderTable() {
   syncSelectedWithKeywords();
-  document.getElementById('kwBody').innerHTML = keywords.map(row => {
+  const visibleRows = getVisibleKeywords();
+  const body = document.getElementById('kwBody');
+  if (!visibleRows.length) {
+    body.innerHTML = `<tr><td colspan="12"><div class="cell" style="padding:28px 14px;text-align:center;color:var(--text3)">当前筛选下没有关键词任务</div></td></tr>`;
+    updateSelectionState();
+    return;
+  }
+  body.innerHTML = visibleRows.map(row => {
     const isSel = selected.has(row.urlslug);
     const status = row.status || 'queued';
     const hasDone = status === 'done';
@@ -742,6 +874,43 @@ function renderTable() {
     </tr>`;
   }).join('');
   updateSelectionState();
+}
+
+function getVisibleKeywords() {
+  const q = taskSearch.trim().toLowerCase();
+  return keywords.filter(row => {
+    const status = row.status || 'queued';
+    const statusMatch =
+      taskFilter === 'all' ||
+      (taskFilter === 'queued' && (!row.status || row.status === 'queued')) ||
+      (taskFilter === 'outlined' && row.status === 'outlined') ||
+      (taskFilter === 'done' && row.status === 'done') ||
+      (taskFilter === 'failed' && row.status === 'failed');
+    if (!statusMatch) return false;
+    if (!q) return true;
+    return [row.keyword, row.urlslug, row.blogid, row.articletype, row.priority].some(v => String(v || '').toLowerCase().includes(q));
+  });
+}
+
+function setTaskFilter(name) {
+  taskFilter = name || 'all';
+  document.querySelectorAll('[data-task-filter]').forEach(btn => btn.classList.toggle('on', btn.dataset.taskFilter === taskFilter));
+  renderTable();
+}
+
+function setTaskSearch(value) {
+  taskSearch = value || '';
+  renderTable();
+}
+
+function updateTaskSummary(visible = getVisibleKeywords()) {
+  const el = document.getElementById('taskSummary');
+  if (!el) return;
+  const selectedCount = keywords.filter(k => selected.has(k.urlslug)).length;
+  const outlined = keywords.filter(k => k.status === 'outlined').length;
+  const done = keywords.filter(k => k.status === 'done').length;
+  const failed = keywords.filter(k => k.status === 'failed').length;
+  el.textContent = `当前 ${visible.length} / 全部 ${keywords.length} · 已选 ${selectedCount} · 大纲 ${outlined} · 文章 ${done} · 失败 ${failed}`;
 }
 
 function renderStats() {
@@ -779,8 +948,9 @@ function toggleSel(slug, checked) {
 }
 
 function toggleSelAll(checked) {
-  if (checked) keywords.forEach(k => selected.add(k.urlslug));
-  else selected.clear();
+  const visible = getVisibleKeywords();
+  if (checked) visible.forEach(k => selected.add(k.urlslug));
+  else visible.forEach(k => selected.delete(k.urlslug));
   document.querySelectorAll('#kwBody tr').forEach(tr => {
     const slug = tr.dataset.slug;
     const isSel = selected.has(slug);
@@ -799,11 +969,35 @@ function syncSelectedWithKeywords() {
 function updateSelectionState() {
   const box = document.getElementById('selAll');
   if (!box) return;
-  const total = keywords.length;
-  const count = keywords.filter(k => selected.has(k.urlslug)).length;
-  box.checked = total > 0 && count === total;
-  box.indeterminate = count > 0 && count < total;
-  box.title = total ? `已选择 ${count} / ${total}` : '无关键词';
+  const visible = getVisibleKeywords();
+  const total = visible.length;
+  const visibleCount = visible.filter(k => selected.has(k.urlslug)).length;
+  const allCount = keywords.filter(k => selected.has(k.urlslug)).length;
+  box.checked = total > 0 && visibleCount === total;
+  box.indeterminate = visibleCount > 0 && visibleCount < total;
+  box.title = total ? `当前筛选已选择 ${visibleCount} / ${total}，全部已选择 ${allCount}` : '当前筛选无关键词';
+  const bar = document.getElementById('batchBar');
+  const countEl = document.getElementById('batchCount');
+  if (bar) bar.classList.toggle('show', allCount > 0);
+  if (countEl) countEl.textContent = `已选择 ${allCount} 项`;
+  updateTaskSummary(visible);
+  updateSidebarNote();
+}
+
+function updateSidebarNote() {
+  const el = document.getElementById('sidebarNote');
+  if (!el) return;
+  const selectedCount = keywords.filter(k => selected.has(k.urlslug)).length;
+  const runningCount = keywords.filter(k => k.status === 'running').length;
+  if (runningCount) el.textContent = `正在运行 ${runningCount} 个任务，请等待完成。`;
+  else if (selectedCount) el.textContent = `已选择 ${selectedCount} 个关键词，可生成大纲、生成文章、重置或发布到 WordPress。`;
+  else el.textContent = '先勾选关键词，再执行大纲、文章生成或发布。';
+}
+
+function clearSelection() {
+  selected.clear();
+  renderTable();
+  log('已取消选择', 'ok');
 }
 
 function toggleAddRow(force) {
@@ -989,6 +1183,7 @@ function dlZip() { if (currentSite) window.location.href = `/api/sites/${current
 function dlMeta() { if (currentSite) window.location.href = `/api/sites/${currentSite}/meta-table`; }
 
 async function openDrawer(slug, keyword) {
+  const row = keywords.find(k => k.urlslug === slug) || {};
   drawerSlug = slug;
   drawerHtml = '';
   drawerPublishPack = null;
@@ -997,6 +1192,9 @@ async function openDrawer(slug, keyword) {
   setTranslateButton('outline', false, false);
   setTranslateButton('article', false, false);
   document.getElementById('drawerKw').textContent = keyword;
+  const meta = [row.blogId || row.blogid, STATUS_ZH[row.status || 'queued'] || row.status, row.qaScore != null ? `QA ${row.qaScore}` : ''].filter(Boolean).join(' · ');
+  document.getElementById('drawerMeta').textContent = meta ? ` · ${meta}` : '';
+  resetWorkspaceNav(row);
   document.getElementById('drawerOutline').innerHTML = '<div class="hint">加载大纲…</div>';
   document.getElementById('drawerPreview').innerHTML = '<div class="hint">加载文章…</div>';
   document.getElementById('drawerSource').textContent = '';
@@ -1015,10 +1213,39 @@ async function openDrawer(slug, keyword) {
   ]);
 }
 
+function resetWorkspaceNav(row = {}) {
+  const base = {
+    outline: row.outlineStatus === 'done' || row.status === 'outlined' || row.status === 'done' ? '检查中' : '待生成',
+    preview: row.status === 'done' || row.wordCount ? '检查中' : '待生成',
+    source: row.status === 'done' || row.wordCount ? '检查中' : '待生成',
+    qa: row.qaScore != null ? `QA ${row.qaScore}` : '待生成',
+    publish: '待生成',
+    images: '待配置',
+    data: '待加载',
+  };
+  Object.entries(base).forEach(([key, value]) => setWorkspaceNavState(key, value));
+  updateWorkspaceStatus(row);
+}
+
+function setWorkspaceNavState(name, value) {
+  const el = document.querySelector(`[data-workspace-state="${name}"]`);
+  if (el) el.textContent = value || '—';
+}
+
+function updateWorkspaceStatus(row = {}) {
+  const el = document.getElementById('workspaceStatus');
+  if (!el) return;
+  const status = STATUS_ZH[row.status || 'queued'] || row.status || '待生成';
+  const type = TYPE_ZH[row.articletype] || row.articletype || '—';
+  const words = [row.wordCount ? `${row.wordCount} 字` : '', row.targetwordcount ? `目标 ${row.targetwordcount}` : ''].filter(Boolean).join(' / ') || '字数待生成';
+  const qa = row.qaScore != null ? `QA ${row.qaScore}` : 'QA 待生成';
+  el.innerHTML = `状态：${esc(status)}<br>类型：${esc(type)}<br>${esc(words)}<br>${esc(qa)}`;
+}
+
 async function loadOutline(slug) {
   const el = document.getElementById('drawerOutline');
   const res = await fetch(`/api/sites/${currentSite}/outlines/${slug}`);
-  if (!res.ok) { el.innerHTML = '<div class="hint">还没有大纲。请先点击表格里的「纲」生成大纲。</div>'; return; }
+  if (!res.ok) { el.innerHTML = '<div class="hint">还没有大纲。请先点击表格里的「纲」生成大纲。</div>'; setWorkspaceNavState('outline', '未生成'); return; }
   const data = await res.json();
   const html = renderOutline(data.outline);
   previewTranslations.outline.original = html;
@@ -1026,6 +1253,7 @@ async function loadOutline(slug) {
   previewTranslations.outline.showing = false;
   setTranslateButton('outline', false, false);
   el.innerHTML = html;
+  setWorkspaceNavState('outline', '已完成');
 }
 
 async function loadArticle(slug) {
@@ -1033,6 +1261,8 @@ async function loadArticle(slug) {
   if (!articleRes.ok) {
     document.getElementById('drawerPreview').innerHTML = '<div class="hint">还没有文章。请先生成大纲，再点击 ▶ 生成文章。</div>';
     document.getElementById('drawerSource').textContent = '';
+    setWorkspaceNavState('preview', '未生成');
+    setWorkspaceNavState('source', '未生成');
     return;
   }
   drawerHtml = await articleRes.text();
@@ -1042,22 +1272,26 @@ async function loadArticle(slug) {
   setTranslateButton('article', false, false);
   document.getElementById('drawerPreview').innerHTML = drawerHtml;
   document.getElementById('drawerSource').textContent = drawerHtml;
+  setWorkspaceNavState('preview', '已生成');
+  setWorkspaceNavState('source', `${Math.round(drawerHtml.length / 1024)}KB`);
 }
 
 async function loadQa(slug) {
   const el = document.getElementById('drawerQa');
   const res = await fetch(`/api/sites/${currentSite}/qa/${slug}`);
-  if (!res.ok) { el.innerHTML = '<div class="hint">还没有 QA 报告。文章生成后会自动出现。</div>'; return; }
+  if (!res.ok) { el.innerHTML = '<div class="hint">还没有 QA 报告。文章生成后会自动出现。</div>'; setWorkspaceNavState('qa', '未生成'); return; }
   const data = await res.json();
   el.innerHTML = renderQa(data.qa);
+  setWorkspaceNavState('qa', data.qa?.score != null ? `${data.qa.score} 分` : '已生成');
 }
 
 async function loadPublishPack(slug) {
   const el = document.getElementById('publishPack');
   const packRes = await fetch(`/api/sites/${currentSite}/publish-pack/${slug}`);
-  if (!packRes.ok) { el.innerHTML = '<div class="hint">还没有发布包。文章生成并通过元数据写入后会自动出现。</div>'; return; }
+  if (!packRes.ok) { el.innerHTML = '<div class="hint">还没有发布包。文章生成并通过元数据写入后会自动出现。</div>'; setWorkspaceNavState('publish', '未生成'); return; }
   const res = await packRes.json();
   drawerPublishPack = res;
+  setWorkspaceNavState('publish', '已准备');
   const seoTitles = res.seoTitles && res.seoTitles.length ? res.seoTitles : ['暂无 SEO 标题'];
   const meta = res.metaDescription || '';
   el.innerHTML = `
@@ -1092,8 +1326,9 @@ async function loadPublishPack(slug) {
 async function loadDataPack(slug) {
   const el = document.getElementById('drawerData');
   const res = await fetch(`/api/sites/${currentSite}/data-pack/${slug}`);
-  if (!res.ok) { el.textContent = '数据包暂不可用'; return; }
+  if (!res.ok) { el.textContent = '数据包暂不可用'; setWorkspaceNavState('data', '不可用'); return; }
   el.textContent = JSON.stringify(await res.json(), null, 2);
+  setWorkspaceNavState('data', '已加载');
 }
 
 function renderOutline(outline = {}) {
@@ -1207,9 +1442,10 @@ function renderQa(qa = {}) {
 async function loadImagePlan(slug) {
   const el = document.getElementById('imageConfig');
   const res = await fetch(`/api/sites/${currentSite}/image-plan/${slug}`);
-  if (!res.ok) { el.innerHTML = '<div class="hint">\u6587\u7ae0\u751f\u6210\u540e\u624d\u80fd\u4f7f\u7528\u56fe\u7247\u914d\u7f6e\u3002</div>'; return; }
+  if (!res.ok) { el.innerHTML = '<div class="hint">\u6587\u7ae0\u751f\u6210\u540e\u624d\u80fd\u4f7f\u7528\u56fe\u7247\u914d\u7f6e\u3002</div>'; setWorkspaceNavState('images', '未生成'); return; }
   const data = await res.json();
   drawerImagePlan = data.imagePlan;
+  setWorkspaceNavState('images', drawerImagePlan?.slots?.length ? `${drawerImagePlan.slots.length} 张` : '待配置');
   renderImagePlan();
 }
 
@@ -1342,6 +1578,7 @@ function closeDrawer() { document.getElementById('drawer')?.classList.remove('op
 function switchDrawerTab(name) {
   const names = ['outline','preview','source','qa','publish','images','data'];
   document.querySelectorAll('.drawer .tab').forEach((t,i) => t.classList.toggle('on', names[i] === name));
+  document.querySelectorAll('.workspace-nav-btn').forEach(btn => btn.classList.toggle('on', btn.dataset.workspaceTab === name));
   document.querySelectorAll('.drawer .tab-pane').forEach(p => p.classList.remove('on'));
   document.getElementById('tp-' + name)?.classList.add('on');
 }
@@ -1353,9 +1590,9 @@ async function publishWordPress(btn) {
   if (!drawerHtml) return log('当前文章还没有 HTML，无法发布', 'err');
   const wp = configs.site?.wordpress || {};
   if (!wp.endpoint || !wp.username || !wp.appPassword) {
-    switchPanel('config');
-    switchSubtabByName('config', 'site');
-    return log('请先在「站点配置 → 品牌设置 → WordPress 发布接口」填写接口地址、用户名和 Application Password', 'err');
+    switchPanel('settings');
+    switchSubtab('settings', 'wordpress');
+    return log('请先在「设置 → WordPress」填写接口地址、用户名和 Application Password', 'err');
   }
   const original = btn?.textContent || '';
   if (btn) { btn.disabled = true; btn.textContent = '发布中…'; }
@@ -1380,9 +1617,9 @@ async function publishWordPress(btn) {
 async function publishSelectedWordPress(btn) {
   const wp = configs.site?.wordpress || {};
   if (!wp.endpoint || !wp.username || !wp.appPassword) {
-    switchPanel('config');
-    switchSubtabByName('config', 'site');
-    return log('请先在「站点配置 → 品牌设置 → WordPress 发布接口」填写接口地址、用户名和 Application Password', 'err');
+    switchPanel('settings');
+    switchSubtab('settings', 'wordpress');
+    return log('请先在「设置 → WordPress」填写接口地址、用户名和 Application Password', 'err');
   }
   const rows = keywords.filter(row => selected.has(row.urlslug));
   if (!rows.length) return log('请先勾选要发布的文章', 'err');
@@ -1467,7 +1704,7 @@ function switchSubtabByName(group, name) {
   document.querySelectorAll(`#${group}Tabs .subtab`).forEach(btn => btn.classList.remove('on'));
   document.querySelectorAll(`[id^="${group}-"].subpane`).forEach(p => p.classList.remove('on'));
   document.getElementById(`${group}-${name}`)?.classList.add('on');
-  const idx = { site:0, author:1, knowledge:2, links:3, 'style-reference':4 }[name] || 0;
+  const idx = { site:0, author:1, knowledge:2, links:3, 'style-reference':4, 'project-instructions':5 }[name] || 0;
   document.querySelectorAll(`#${group}Tabs .subtab`)[idx]?.classList.add('on');
 }
 
@@ -1477,6 +1714,8 @@ function renderConfig() {
   renderKnowledgeConfig();
   renderLinksConfig();
   renderStyleReferenceConfig();
+  renderProjectInstructionsConfig();
+  renderSettingsWordPress();
 }
 
 function renderSiteConfig() {
@@ -1509,6 +1748,45 @@ function renderSiteConfig() {
     </div>
     <div class="hint" style="margin:8px 0 12px">WordPress 后台路径：用户 → 个人资料 → Application Passwords。SEO meta 会尝试兼容 Yoast、Rank Math、AIOSEO；如果插件未开放 REST meta，文章仍会创建，SEO 字段可在后台复核。</div>
     <button class="btn btn-green btn-sm" onclick="saveSiteConfig(this)">保存WordPress设置</button>
+  </div>`;
+}
+
+function renderSettingsWordPress() {
+  const el = document.getElementById('settings-wordpress');
+  if (!el) return;
+  const s = configs.site || {};
+  const wp = s.wordpress || {};
+  el.innerHTML = `<div class="config-card">
+    <div class="card-head"><span class="card-title">WordPress</span><span class="hint">用于单篇发布和批量发布，发布时会带上 slug、SEO 标题和 Meta Description。</span></div>
+    <div class="form-grid">
+      ${field('s_wpEndpoint','WordPress站点/接口地址',wp.endpoint || s.domain || '')}
+      ${field('s_wpUsername','WordPress用户名',wp.username || '')}
+      <div class="form-field"><label>Application Password</label><input id="s_wpAppPassword" type="password" value="${escAttr(wp.appPassword || '')}" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"></div>
+      <div class="form-field"><label>默认发布状态</label><select id="s_wpStatus"><option value="draft" ${wp.defaultStatus !== 'publish' ? 'selected' : ''}>草稿 draft</option><option value="publish" ${wp.defaultStatus === 'publish' ? 'selected' : ''}>直接发布 publish</option></select></div>
+      ${field('s_wpCategories','默认分类ID（逗号分隔）',Array.isArray(wp.categories) ? wp.categories.join(',') : (wp.categories || ''))}
+      ${field('s_wpTags','默认标签ID（逗号分隔）',Array.isArray(wp.tags) ? wp.tags.join(',') : (wp.tags || ''))}
+    </div>
+    <div class="hint" style="margin:8px 0 12px">WordPress 后台路径：用户 → 个人资料 → Application Passwords。若 SEO 插件未开放 REST meta，文章仍会创建，SEO 字段可在后台复核。</div>
+    <button class="btn btn-green" onclick="saveWordPressSettings(this)">保存 WordPress 设置</button>
+  </div>`;
+}
+
+function renderProjectInstructionsConfig() {
+  const el = document.getElementById('config-project-instructions');
+  if (!el) return;
+  el.innerHTML = `<div class="config-card">
+    <div class="card-head">
+      <span class="card-title">Project 指令</span>
+      <span class="hint">站点级全局写作 SOP，会参与大纲和正文生成；适合放品牌规则、合规边界、输出格式和工作流程。</span>
+    </div>
+    <div class="form-field span-all">
+      <label>project-instructions.md</label>
+      <textarea id="c_projectInstructions" style="min-height:620px;font-family:'SF Mono','Consolas',monospace;font-size:12px;line-height:1.6">${esc(configs.projectInstructions || '')}</textarea>
+    </div>
+    <div class="form-actions" style="margin-top:10px">
+      <button class="btn btn-green" onclick="saveProjectInstructionsConfig(this)">保存 Project 指令</button>
+      <span class="hint">保存后写入当前站点目录的 project-instructions.md。</span>
+    </div>
   </div>`;
 }
 
@@ -1639,21 +1917,48 @@ function collectStyleReferenceConfig() {
     updatedAt: new Date().toISOString(),
   };
 }
+function collectProjectInstructionsConfig() {
+  return valRaw('c_projectInstructions');
+}
 async function saveSiteConfig(btn) { configs.site = collectSiteConfig(); await saveConfig('site', configs.site, btn); }
+async function saveWordPressSettings(btn) {
+  configs.site = {
+    ...(configs.site || {}),
+    wordpress: {
+      ...((configs.site || {}).wordpress || {}),
+      endpoint: val('s_wpEndpoint'),
+      username: val('s_wpUsername'),
+      appPassword: val('s_wpAppPassword'),
+      defaultStatus: val('s_wpStatus') || 'draft',
+      categories: fromLines(val('s_wpCategories')),
+      tags: fromLines(val('s_wpTags')),
+    },
+  };
+  await saveConfig('site', configs.site, btn);
+  renderSettingsWordPress();
+}
 async function saveAuthorConfig(btn) { configs.author = collectAuthorConfig(); await saveConfig('author', configs.author, btn); }
 async function saveKnowledgeConfig(btn) { configs.knowledge = collectKnowledgeConfig(); await saveConfig('knowledge', configs.knowledge, btn); }
 async function saveLinksConfig(btn) { configs.links = collectLinksConfig(); await saveConfig('links', configs.links, btn); }
 async function saveStyleReferenceConfig(btn) { configs['style-reference'] = collectStyleReferenceConfig(); await saveConfig('style-reference', configs['style-reference'], btn); }
+async function saveProjectInstructionsConfig(btn) {
+  configs.projectInstructions = collectProjectInstructionsConfig();
+  const res = await api('POST', `/sites/${currentSite}/project-instructions`, { content: configs.projectInstructions });
+  if (res) { savedButton(btn, '保存 Project 指令'); log('project-instructions.md 已保存', 'ok'); }
+}
 async function saveAllConfigs(btn) {
   configs.site = collectSiteConfig();
   configs.author = collectAuthorConfig();
   configs.knowledge = collectKnowledgeConfig();
   configs.links = collectLinksConfig();
   configs['style-reference'] = collectStyleReferenceConfig();
+  configs.projectInstructions = collectProjectInstructionsConfig();
   for (const key of ['site','author','knowledge','links','style-reference']) {
     const res = await api('POST', `/sites/${currentSite}/config/${key}`, { content: configs[key] });
     if (!res) return;
   }
+  const projectRes = await api('POST', `/sites/${currentSite}/project-instructions`, { content: configs.projectInstructions });
+  if (!projectRes) return;
   savedButton(btn, '保存所有更改');
   log('站点配置已全部保存', 'ok');
 }
@@ -1890,7 +2195,11 @@ async function loadSetupStatus(token = siteLoadSeq) {
   const siteAtRequest = currentSite;
   const res = await api('POST', `/sites/${siteAtRequest}/setup-preview`, { siteId: siteAtRequest, files: [{ name: 'readme.md', relativePath: 'readme.md', encoding: 'utf8', content: '# setup status probe' }], ...getApiConfigWithoutKey() });
   if (token !== siteLoadSeq || siteAtRequest !== currentSite) return;
-  if (res?.required) renderSetupRequired(res.required);
+  if (res?.required) {
+    setupRequiredItems = res.required;
+    renderSetupRequired(res.required);
+    renderImportOverview();
+  }
 }
 
 function chooseSetupFiles() {
@@ -1900,9 +2209,17 @@ function chooseSetupFiles() {
 
 async function onSetupFiles(input) {
   const files = [...(input.files || [])];
+  await handleSetupFiles(files);
+  input.value = '';
+}
+
+async function handleSetupFiles(files) {
+  files = [...(files || [])];
   if (!files.length) return;
   if (!currentSite) return log('请先创建或选择站点', 'err');
   const siteAtUpload = currentSite;
+  lastImportResult = null;
+  renderImportOverview({ phase: 'uploading', fileCount: files.length });
   log(`开始识别 ${files.length} 个建站资料文件`, 'run');
   const payload = [];
   for (const file of files) {
@@ -1914,25 +2231,29 @@ async function onSetupFiles(input) {
       payload.push({ name: file.name, relativePath, encoding: 'utf8', content: await file.text() });
     }
   }
-  input.value = '';
   if (siteAtUpload !== currentSite) {
+    renderImportOverview({ phase: 'mismatch' });
     return log(`站点已切换，本次 ${siteAtUpload} 的上传识别已取消`, 'err');
   }
   const res = await api('POST', `/sites/${siteAtUpload}/setup-preview`, { siteId: siteAtUpload, files: payload, ...getApiConfig() });
   if (!res) return;
   if (siteAtUpload !== currentSite) {
+    renderImportOverview({ phase: 'mismatch' });
     return log(`站点已切换，本次 ${siteAtUpload} 的识别结果已丢弃，避免写入到 ${currentSite}`, 'err');
   }
   setupFiles = res.files || [];
   setupFilesSite = siteAtUpload;
+  setupRequiredItems = res.required || [];
   renderSetupRequired(res.required || []);
   renderSetupPreview();
+  renderImportOverview({ phase: 'mapped' });
   log(`${siteAtUpload} 资料识别完成：${setupFiles.length} 个文件`, 'ok');
 }
 
 function renderSetupRequired(items = []) {
   const el = document.getElementById('setupRequired');
   if (!el) return;
+  setupRequiredItems = items;
   el.innerHTML = `<table class="mini-table"><thead><tr><th>需要的文件</th><th>用途</th><th>状态</th></tr></thead><tbody>${items.map(item => `<tr>
     <td style="font-family:monospace">${esc(item.file)}</td>
     <td><strong>${esc((SETUP_REQUIRED_ZH[item.file] || [item.label])[0])}</strong><br><span class="hint">${esc((SETUP_REQUIRED_ZH[item.file] || [null, item.description])[1])}</span></td>
@@ -1943,22 +2264,36 @@ function renderSetupRequired(items = []) {
 function renderSetupPreview() {
   const el = document.getElementById('setupPreview');
   if (!el) return;
-  if (!setupFiles.length) { el.innerHTML = ''; return; }
+  if (!setupFiles.length) { el.innerHTML = ''; renderImportOverview(); return; }
   const lockedSite = setupFilesSite || currentSite;
   const siteMismatch = lockedSite && currentSite && lockedSite !== currentSite;
+  const actionableCount = setupFiles.filter(file => {
+    const target = String(file.target || '').trim();
+    return !siteMismatch && target && target !== 'ignore';
+  }).length;
   el.innerHTML = `<div class="card-head" style="margin-top:14px"><span class="card-title">AI 识别结果（将写入：${esc(lockedSite || '-')}）</span><span class="hint">${siteMismatch ? '当前站点已切换，请重新上传识别，避免资料串站。' : '勾选要写入的文件；无关文件会标记为忽略。'}</span></div>
+  <div class="hint" style="margin-bottom:8px">共识别 ${setupFiles.length} 个文件，其中 ${actionableCount} 个可写入当前站点。</div>
   <table class="mini-table"><thead><tr><th style="width:34px"></th><th>文件</th><th>识别模块</th><th>目标文件</th><th>置信度</th><th>说明</th></tr></thead><tbody>
   ${setupFiles.map((file, i) => {
-    const actionable = !siteMismatch && file.target && file.target !== 'ignore' && file.status !== 'ignored';
-    return `<tr>
-      <td><input type="checkbox" data-setup-index="${i}" ${actionable ? 'checked' : 'disabled'}></td>
+    const target = String(file.target || '').trim();
+    const actionable = !siteMismatch && target && target !== 'ignore';
+    return `<tr ${actionable ? `onclick="toggleSetupRowCheck(event,${i})" style="cursor:pointer"` : ''}>
+      <td><input type="checkbox" data-setup-index="${i}" ${actionable ? 'checked' : 'disabled'} onclick="event.stopPropagation()"></td>
       <td style="font-family:monospace">${esc(file.relativePath || file.name)}</td>
       <td>${esc(file.module || 'ignore')}</td>
-      <td style="font-family:monospace">${esc(file.target || 'ignore')}</td>
+      <td style="font-family:monospace">${esc(target || 'ignore')}</td>
       <td>${Math.round((Number(file.confidence) || 0) * 100)}%</td>
       <td>${esc(file.reason || file.aiError || '')}</td>
     </tr>`;
   }).join('')}</tbody></table>`;
+  renderImportOverview();
+}
+
+function toggleSetupRowCheck(ev, index) {
+  const box = document.querySelector(`[data-setup-index="${index}"]`);
+  if (!box || box.disabled) return;
+  box.checked = !box.checked;
+  renderImportOverview();
 }
 
 async function applySelectedSetupFiles() {
@@ -1967,8 +2302,11 @@ async function applySelectedSetupFiles() {
   if (targetSite !== currentSite) return log(`识别结果属于 ${targetSite}，当前是 ${currentSite}。请重新上传识别后再写入。`, 'err');
   const selectedFiles = [...document.querySelectorAll('[data-setup-index]:checked')].map(input => setupFiles[Number(input.dataset.setupIndex)]).filter(Boolean);
   if (!selectedFiles.length) return log('没有勾选可写入资料', 'err');
+  renderImportOverview({ phase: 'applying', selectedCount: selectedFiles.length });
   const res = await api('POST', `/sites/${targetSite}/setup-apply`, { siteId: targetSite, files: selectedFiles });
   if (!res) return;
+  lastImportResult = res;
+  setupRequiredItems = res.required || [];
   renderSetupRequired(res.required || []);
   log(`${targetSite} 建站资料写入完成：${res.filesApplied || 0} 个文件`, res.errors?.length ? 'err' : 'ok');
   (res.summary || []).forEach(item => log(`\u5bfc\u5165\uff1a${item.file} -> ${item.target}`, 'ok'));
@@ -1977,7 +2315,66 @@ async function applySelectedSetupFiles() {
   setupFiles = (res.errors && res.errors.length) ? setupFiles : [];
   if (!setupFiles.length) setupFilesSite = '';
   renderSetupPreview();
+  renderImportOverview({ phase: res.errors?.length ? 'error' : 'applied' });
   await loadSites(keepSite);
+  lastImportResult = res;
+  renderImportOverview({ phase: res.errors?.length ? 'error' : 'applied' });
+  if (keepSite === currentSite) {
+    const token = siteLoadSeq;
+    await Promise.all([loadConfigs(token), reloadKeywords(token), loadSetupStatus(token)]);
+  }
+}
+
+function renderImportOverview(state = {}) {
+  const lockedSite = setupFilesSite || currentSite || '—';
+  const complete = setupRequiredItems.filter(item => item.complete).length;
+  const requiredTotal = setupRequiredItems.length;
+  const mapped = setupFiles.length;
+  const writable = setupFiles.filter(file => {
+    const target = String(file.target || '').trim();
+    return target && target !== 'ignore' && (!setupFilesSite || setupFilesSite === currentSite);
+  }).length;
+  const checked = [...document.querySelectorAll('[data-setup-index]:checked')].length;
+  const phase = state.phase || (lastImportResult ? 'applied' : mapped ? 'mapped' : 'idle');
+  const step = phase === 'idle' ? 1 : phase === 'uploading' ? 2 : phase === 'mapped' ? 3 : phase === 'applying' ? 4 : phase === 'applied' ? 4 : 1;
+
+  const siteEl = document.getElementById('importSiteLock');
+  if (siteEl) siteEl.textContent = `当前站点：${lockedSite}`;
+  document.querySelectorAll('[data-import-step]').forEach(el => {
+    const n = Number(el.dataset.importStep);
+    el.classList.toggle('on', n === step);
+    el.classList.toggle('done', n < step || (phase === 'applied' && n === 4));
+  });
+  const grid = document.getElementById('importStatusGrid');
+  if (grid) {
+    grid.innerHTML = `
+      <div class="import-status-card"><strong>${esc(currentSite || '—')}</strong><span class="hint">当前站点</span></div>
+      <div class="import-status-card"><strong>${complete}/${requiredTotal || 7}</strong><span class="hint">必要文件完成度</span></div>
+      <div class="import-status-card"><strong>${mapped}</strong><span class="hint">已识别文件</span></div>
+      <div class="import-status-card"><strong>${checked || writable}</strong><span class="hint">${checked ? '已勾选待写入' : '可写入文件'}</span></div>`;
+  }
+  const result = document.getElementById('importResult');
+  if (result) {
+    if (!lastImportResult) {
+      result.className = 'import-result';
+      result.textContent = '';
+    } else {
+      const errors = lastImportResult.errors || [];
+      result.className = `import-result show ${errors.length ? 'err' : 'ok'}`;
+      result.innerHTML = errors.length
+        ? `写入完成，但有 ${errors.length} 个错误。成功写入 ${lastImportResult.filesApplied || 0} 个文件，请查看左侧日志。`
+        : `写入完成：已应用 ${lastImportResult.filesApplied || 0} 个文件，配置和关键词已刷新。`;
+    }
+  }
+}
+
+function setupDragEnter(ev, el) { ev.preventDefault(); el.classList.add('dragover'); }
+function setupDragOver(ev, el) { ev.preventDefault(); el.classList.add('dragover'); }
+function setupDragLeave(ev, el) { ev.preventDefault(); el.classList.remove('dragover'); }
+function dropSetupFiles(ev, el) {
+  ev.preventDefault();
+  el.classList.remove('dragover');
+  handleSetupFiles([...(ev.dataTransfer?.files || [])]);
 }
 
 function fileToBase64(file) {
@@ -2118,11 +2515,22 @@ function updateStatus(slug, status, extra = {}) {
 }
 function log(msg, cls = '') {
   const el = document.getElementById('log');
+  if (!el) return;
   const d = document.createElement('div');
   d.className = 'log-line ' + cls;
   d.textContent = new Date().toLocaleTimeString('zh-CN', { hour12:false }) + '  ' + msg;
   el.prepend(d);
   if (el.children.length > 300) el.lastElementChild.remove();
+}
+function toggleLogArea(btn) {
+  const el = document.getElementById('log');
+  if (!el) return;
+  const collapsed = el.classList.toggle('collapsed');
+  if (btn) btn.textContent = collapsed ? '展开' : '折叠';
+}
+function clearLog() {
+  const el = document.getElementById('log');
+  if (el) el.innerHTML = '';
 }
 function savedButton(btn, original) {
   if (!btn) return;
@@ -2176,6 +2584,7 @@ function parseEvent(ev) {
   try { return JSON.parse(ev.data || '{}'); } catch { return {}; }
 }
 function val(id) { return document.getElementById(id)?.value.trim() || ''; }
+function valRaw(id) { return document.getElementById(id)?.value || ''; }
 function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s) { return esc(s).replace(/'/g,'&#39;'); }
 function cssEsc(s) { return String(s || '').replace(/["\\]/g, '\\$&'); }

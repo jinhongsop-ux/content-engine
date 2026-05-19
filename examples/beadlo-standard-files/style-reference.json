@@ -1,0 +1,38 @@
+{
+  "styleGuide": "Output full, publish-ready HTML that visually matches Beadlo: warm, bright, craft-focused layout; clear H1/H2 hierarchy; comparison tables; FAQ blocks; quote/callout blocks; practical CTA sections; readable spacing; mobile-friendly sections. Keep classes site-specific and do not output Markdown.",
+  "referenceHtml": "<article class=\"beadlo-article\">\n  <section class=\"beadlo-hero\">...</section>\n  <section class=\"beadlo-card\">...</section>\n</article>",
+  "sourceUrl": "",
+  "sourceType": "homepage",
+  "extractedDate": "",
+  "extractedStyle": {
+    "layout": "",
+    "articleContainer": "",
+    "typography": {
+      "h1": "",
+      "h2": "",
+      "h3": "",
+      "p": "",
+      "ul": "",
+      "ol": "",
+      "table": ""
+    },
+    "components": [],
+    "cssConventions": "",
+    "articleStructure": "",
+    "do": [],
+    "dont": []
+  },
+  "htmlRulesForGeneration": [],
+  "sampleBlocks": {
+    "articleIntro": "",
+    "faqBlock": "",
+    "productCard": "",
+    "comparisonTable": "",
+    "ctaBlock": "",
+    "authorBlock": "",
+    "stepBlock": "",
+    "sectionGrid": "",
+    "relatedLinks": "",
+    "breadcrumb": ""
+  }
+}
