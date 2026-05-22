@@ -128,6 +128,17 @@ td.col-actions { width:150px; }
 .notice { display:none; margin:12px 14px 0; padding:8px 10px; border-radius:var(--r); font-size:12px; }
 .notice.ok { display:block; background:var(--green-bg); color:var(--green); }
 .notice.err { display:block; background:var(--red-bg); color:var(--red); }
+.create-type-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+.create-type-card { border:.5px solid var(--border); border-radius:var(--r-lg); background:var(--bg); padding:13px; cursor:pointer; min-height:118px; transition:border-color .12s, background .12s; }
+.create-type-card:hover { background:var(--bg2); }
+.create-type-card.on { border-color:var(--blue); background:var(--blue-bg); color:var(--blue); }
+.create-type-card strong { display:block; font-size:14px; margin-bottom:6px; color:inherit; }
+.create-type-card p { font-size:12px; line-height:1.65; color:var(--text2); }
+.create-type-card.on p { color:inherit; opacity:.85; }
+.strategy-scope-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:10px 14px; background:var(--bg); border-bottom:.5px solid var(--border); }
+.scope-chip { border:.5px solid var(--border); background:var(--bg); color:var(--text2); border-radius:999px; padding:6px 11px; font-size:12px; cursor:pointer; }
+.scope-chip.on { color:var(--blue); border-color:var(--blue); background:var(--blue-bg); }
+.scope-note { font-size:11px; color:var(--text3); margin-left:auto; }
 
 .subtabs { display:flex; gap:4px; padding:8px 14px 0; background:var(--bg); border-bottom:.5px solid var(--border); flex-shrink:0; }
 .subtab { padding:8px 12px; font-size:12px; font-weight:500; cursor:pointer; color:var(--text2); border-bottom:2px solid transparent; margin-bottom:-.5px; background:transparent; border-left:none; border-right:none; border-top:none; }
@@ -296,30 +307,28 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
     </div>
     <div class="modal-body">
       <div id="createNotice" class="notice"></div>
+      <div class="create-type-grid">
+        <div class="create-type-card on" id="createTypeB2c" onclick="selectCreateType('b2c')">
+          <strong>创建 C端 / DTC 内容站</strong>
+          <p>适合独立站、电商、消费品、品牌博客。重点是品牌人设、消费人群、购买决策、产品体验和内容转化。</p>
+        </div>
+        <div class="create-type-card" id="createTypeB2b" onclick="selectCreateType('b2b')">
+          <strong>创建 B端 / 外贸 / 制造站</strong>
+          <p>适合工厂、供应商、B2B 产品站和外贸询盘站。重点是公司能力、采购角色、行业应用、认证边界和 RFQ 转化。</p>
+        </div>
+      </div>
       <div class="config-card">
         <div class="card-head">
-          <span class="card-title">新增站点基础信息</span>
-          <span class="hint">先创建独立站点目录，再上传这个站点自己的变量资料。</span>
+          <span class="card-title" id="createFormTitle">C端站点基础信息</span>
+          <span class="hint" id="createFormHint">先创建独立站点目录，再上传这个站点自己的品牌、作者、知识库和关键词资料。</span>
         </div>
-        <div class="form-grid">
-          <div class="form-field"><label>网站ID *</label><input id="n_siteId" placeholder="my-site"></div>
-          <div class="form-field"><label>网站名称</label><input id="n_siteName"></div>
-          <div class="form-field"><label>域名</label><input id="n_domain" placeholder="https://..."></div>
-          <div class="form-field"><label>语言</label><input id="n_language" value="en"></div>
-          <div class="form-field span-all"><label>网站定位</label><textarea id="n_positioning" placeholder="这个网站帮助谁，解决什么问题，最终引导什么转化"></textarea></div>
-          <div class="form-field"><label>作者姓名</label><input id="n_authorName"></div>
-          <div class="form-field"><label>作者职位</label><input id="n_authorTitle"></div>
-          <div class="form-field"><label>写作语气</label><input id="n_tone" placeholder="clear, practical, specific"></div>
-          <div class="form-field"><label>目标受众</label><input id="n_targetAudience" placeholder="逗号分隔"></div>
-          <div class="form-field span-all"><label>必须表达</label><textarea id="n_mustSay" placeholder="一行一条"></textarea></div>
-          <div class="form-field span-all"><label>禁止表达</label><textarea id="n_mustNotSay" placeholder="一行一条"></textarea></div>
-        </div>
+        <div class="form-grid" id="createSiteFields"></div>
       </div>
       <div class="config-card">
         <div class="card-head">
           <span class="card-title">初始资料上传流程</span>
         </div>
-        <div class="hint" style="line-height:1.8">
+        <div class="hint" id="createUploadHint" style="line-height:1.8">
           创建成功后，系统会自动切换到新站点并打开「导入中心」。在那里上传品牌文档、作者档案、知识库、内链表、关键词表、样式参考和 Project 指令，识别结果会锁定到该新站点，避免和其它站点串数据。
         </div>
         <div class="form-actions" style="margin-top:10px">
@@ -329,7 +338,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-green" onclick="createSite(this)">创建站点</button>
+      <button class="btn btn-green" id="createSiteBtn" onclick="createSite(this)">创建 C端站点</button>
       <button class="btn" onclick="closeSiteManager()">取消</button>
       <span class="hint">创建后会生成 site.json、knowledge.json、author.json、links.json、style-reference.json、keywords.csv</span>
     </div>
@@ -446,12 +455,12 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       </div>
       <div id="configNotice" class="notice"></div>
       <div class="subtabs" id="configTabs">
-        <button class="subtab on" onclick="switchSubtab('config','site')">品牌设置</button>
-        <button class="subtab" onclick="switchSubtab('config','author')">作者档案</button>
-        <button class="subtab" onclick="switchSubtab('config','knowledge')">品类知识</button>
-        <button class="subtab" onclick="switchSubtab('config','links')">内链库</button>
+        <button class="subtab on" id="configTab-site" onclick="switchSubtab('config','site')">品牌设置</button>
+        <button class="subtab" id="configTab-author" onclick="switchSubtab('config','author')">作者档案</button>
+        <button class="subtab" id="configTab-knowledge" onclick="switchSubtab('config','knowledge')">品类知识</button>
+        <button class="subtab" id="configTab-links" onclick="switchSubtab('config','links')">内链库</button>
         <button class="subtab" onclick="switchSubtab('config','style-reference')">样式参考</button>
-        <button class="subtab" onclick="switchSubtab('config','project-instructions')">Project 指令</button>
+        <button class="subtab" id="configTab-project-instructions" onclick="switchSubtab('config','project-instructions')">Project 指令</button>
       </div>
       <div class="scroll-panel">
         <div class="subpane on" id="config-site"></div>
@@ -466,6 +475,12 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
     <section class="panel" id="panel-logic">
       <div class="section-toolbar">
         <span class="toolbar-title">自定义文章生成策略。修改后将覆盖引擎默认值，删除则恢复默认。</span>
+      </div>
+      <div class="strategy-scope-bar">
+        <button class="scope-chip on" data-scope="b2c" onclick="switchTemplateScope('b2c',this)">C端 / DTC 默认策略</button>
+        <button class="scope-chip" data-scope="b2b" onclick="switchTemplateScope('b2b',this)">B端 / 外贸 / 制造站默认策略</button>
+        <button class="scope-chip" data-scope="common" onclick="switchTemplateScope('common',this)">通用基础策略</button>
+        <span class="scope-note" id="templateScopeNote">当前编辑 C端站点的全局默认策略。</span>
       </div>
       <div class="subtabs" id="logicTabs">
         <button class="subtab on" onclick="switchSubtab('logic','article-types')">文章类型策略</button>
@@ -574,12 +589,14 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
         <div class="subpane" id="settings-wordpress"></div>
         <div class="subpane" id="settings-strategy">
           <div class="config-card">
-            <div class="card-head"><span class="card-title">默认策略</span><span class="hint">文章类型策略、Prompt 区块和 QA 规则仍沿用原有模板接口。</span></div>
+            <div class="card-head"><span class="card-title">默认策略</span><span class="hint">按 C端、B端和通用基础分组管理，避免两种站点生成逻辑互相污染。</span></div>
             <div class="form-actions">
-              <button class="btn btn-blue" onclick="switchPanel('logic')">打开默认策略编辑器</button>
-              <button class="btn" onclick="switchPanel('logic'); switchSubtab('logic','article-types')">文章类型策略</button>
-              <button class="btn" onclick="switchPanel('logic'); switchSubtab('logic','prompt-sections')">Prompt 区块</button>
-              <button class="btn" onclick="switchPanel('logic'); switchSubtab('logic','qa-rules')">QA 规则</button>
+              <button class="btn btn-blue" onclick="openStrategyEditor('b2c')">编辑 C端默认策略</button>
+              <button class="btn btn-blue" onclick="openStrategyEditor('b2b')">编辑 B端默认策略</button>
+              <button class="btn" onclick="openStrategyEditor('common')">编辑通用基础策略</button>
+            </div>
+            <div class="hint" style="line-height:1.8;margin-top:10px">
+              加载顺序：通用基础策略 → 当前站点类型默认策略 → 站点级 templates 覆盖 → Project 指令。Project 指令仍是单站点最高优先级。
             </div>
           </div>
         </div>
@@ -638,6 +655,18 @@ const TYPE_ZH = {
   pillar: '支柱文章',
   listicle: '图文清单',
 };
+const B2B_TYPE_ZH = {
+  'product-category-guide': '产品分类指南',
+  'application-guide': '应用场景指南',
+  'industry-solution': '行业解决方案',
+  'manufacturing-process': '生产工艺说明',
+  'materials-specs': '材料/参数说明',
+  'standards-certification': '标准/认证说明',
+  'supplier-comparison': '供应商对比',
+  'case-study': '案例文章',
+  'procurement-faq': '采购 FAQ',
+  pillar: '支柱文章',
+};
 const STATUS_ZH = { queued: '待生成', outlined: '大纲完成', running: '生成中', done: '已完成', failed: '失败' };
 const SETUP_REQUIRED_ZH = {
   'site.json': ['品牌/网站变量', '网站名、域名、语言、定位、受众、语气、必须表达/禁止表达'],
@@ -676,7 +705,7 @@ const DEFAULT_QA_RULES = {
   ],
   scoreWeights: { seoStructure: 20, brandFit: 20, helpfulness: 20, readability: 20, publishReadiness: 20 },
 };
-const QA_CHECKS = ['article_tag_missing','missing_article_tag','too_short','word_count_below_minimum','forbidden_word_found','mustnot_say_match','editor_markers_found','placeholder_detected','cta_missing','cta_absent','internal_links_zero','internal_link_count_zero','internal_link_count_below_minimum','author_block_missing','author_block_absent','h1_absent','h1_keyword_mismatch','difficulty_not_disclosed','forbidden_adjective_detected','eeat_marker_present','faq_section_absent','meta_description_absent','meta_description_over_155','schema_json_ld_absent','brand_voice_generic_detected','cannibalcheck_field_not_empty'];
+const QA_CHECKS = ['article_tag_missing','missing_article_tag','too_short','word_count_below_minimum','forbidden_word_found','mustnot_say_match','editor_markers_found','placeholder_detected','cta_missing','cta_absent','internal_links_zero','internal_link_count_zero','internal_link_count_below_minimum','author_block_missing','author_block_absent','h1_absent','h1_keyword_mismatch','keyword_coverage_missing','difficulty_not_disclosed','forbidden_adjective_detected','eeat_marker_present','faq_section_absent','meta_description_absent','meta_description_over_155','schema_json_ld_absent','brand_voice_generic_detected','cannibalcheck_field_not_empty','unsupported_certification_detected','factory_claim_without_source','case_study_without_source','leadtime_moq_without_source','b2b_cta_absent','company_credibility_block_absent','consumer_hype_language','buyer_role_absent','spec_table_absent','solution_link_absent','procurement_faq_absent'];
 const WEIGHT_LABELS = { seoStructure:'SEO结构', brandFit:'品牌匹配', helpfulness:'内容有用性', readability:'可读性', publishReadiness:'发布就绪度' };
 const GEMINI_PRESETS = {
   'gemini-3-flash-lite': { model: 'gemini-3.1-flash-lite', endpoint: '', maxTokens: '4096', timeoutMs: '120000' },
@@ -713,11 +742,14 @@ let setupFilesSite = '';
 let setupRequiredItems = [];
 let lastImportResult = null;
 let siteLoadSeq = 0;
+let createSiteMode = 'b2c';
+let templateScope = 'b2c';
 
 init();
 
 async function init() {
   document.getElementById('f_articletype').innerHTML = typeOptions();
+  renderCreateSiteFields();
   loadModelSettings();
   await loadSites();
   await loadTemplates();
@@ -804,10 +836,30 @@ async function loadConfigs(token = siteLoadSeq) {
 
 async function loadTemplates() {
   for (const key of ['article-types','prompt-sections','qa-rules']) {
-    const res = await api('GET', `/templates/${key}`);
+    const res = await api('GET', `/templates/${key}?type=${encodeURIComponent(templateScope)}`);
     if (res) templates[key] = res.content || {};
   }
   renderLogic();
+}
+
+async function switchTemplateScope(scope, btn) {
+  templateScope = ['b2c','b2b','common'].includes(scope) ? scope : 'b2c';
+  document.querySelectorAll('.scope-chip').forEach(chip => chip.classList.toggle('on', chip.dataset.scope === templateScope));
+  const note = document.getElementById('templateScopeNote');
+  if (note) {
+    note.textContent = templateScope === 'b2b'
+      ? '当前编辑 B端/外贸/制造站的全局默认策略。'
+      : templateScope === 'common'
+        ? '当前编辑两类站点都会先加载的通用基础策略。'
+        : '当前编辑 C端/DTC 站点的全局默认策略。';
+  }
+  await loadTemplates();
+  if (btn) btn.classList.add('on');
+}
+
+async function openStrategyEditor(scope = 'b2c') {
+  switchPanel('logic');
+  await switchTemplateScope(scope);
 }
 
 function switchPanel(name) {
@@ -820,6 +872,7 @@ function switchPanel(name) {
 }
 
 function openSiteManager() {
+  renderCreateSiteFields();
   document.getElementById('siteManagerModal')?.classList.add('open');
 }
 
@@ -833,9 +886,65 @@ function startInitialFileUploadFromModal() {
   chooseSetupFiles();
 }
 
+function selectCreateType(type) {
+  createSiteMode = type === 'b2b' ? 'b2b' : 'b2c';
+  renderCreateSiteFields();
+}
+
+function renderCreateSiteFields() {
+  const isB2B = createSiteMode === 'b2b';
+  document.getElementById('createTypeB2c')?.classList.toggle('on', !isB2B);
+  document.getElementById('createTypeB2b')?.classList.toggle('on', isB2B);
+  const title = document.getElementById('createFormTitle');
+  const hint = document.getElementById('createFormHint');
+  const uploadHint = document.getElementById('createUploadHint');
+  const btn = document.getElementById('createSiteBtn');
+  if (title) title.textContent = isB2B ? 'B端站点基础信息' : 'C端站点基础信息';
+  if (hint) hint.textContent = isB2B ? '创建外贸/B2B 站点目录，并生成公司、团队、产品行业知识和采购关键词骨架。' : '创建 DTC/消费品站点目录，并生成品牌、作者、品类知识和消费关键词骨架。';
+  if (uploadHint) uploadHint.textContent = isB2B
+    ? '创建成功后，系统会自动切换到新站点并打开「导入中心」。建议上传公司介绍、产品目录、能力/认证、案例、解决方案页、关键词表和 B2B Project 指令。'
+    : '创建成功后，系统会自动切换到新站点并打开「导入中心」。建议上传品牌文档、作者档案、知识库、内链表、关键词表、样式参考和 Project 指令。';
+  if (btn) btn.textContent = isB2B ? '创建 B端站点' : '创建 C端站点';
+  const el = document.getElementById('createSiteFields');
+  if (!el) return;
+  el.innerHTML = isB2B ? `
+    <div class="form-field"><label>网站ID *</label><input id="n_siteId" placeholder="custom-aluminum-windows"></div>
+    <div class="form-field"><label>公司/网站名称</label><input id="n_siteName"></div>
+    <div class="form-field"><label>域名</label><input id="n_domain" placeholder="https://..."></div>
+    <div class="form-field"><label>语言</label><input id="n_language" value="en"></div>
+    <div class="form-field"><label>商业模式</label><input id="n_businessModel" placeholder="B2B manufacturing / export / custom project inquiry"></div>
+    <div class="form-field"><label>转化目标</label><input id="n_conversionGoal" placeholder="RFQ, catalog download, drawing/spec submission"></div>
+    <div class="form-field span-all"><label>公司定位</label><textarea id="n_positioning" placeholder="这家公司服务哪些采购方，提供什么产品/能力，最终引导什么询盘动作"></textarea></div>
+    <div class="form-field"><label>目标市场</label><input id="n_targetMarkets" placeholder="United States, Canada, Australia"></div>
+    <div class="form-field"><label>目标行业</label><input id="n_targetIndustries" placeholder="contractors, distributors, project owners"></div>
+    <div class="form-field"><label>买家角色</label><input id="n_buyerRoles" placeholder="procurement manager, engineer, contractor"></div>
+    <div class="form-field"><label>核心产品</label><input id="n_coreProducts" placeholder="逗号分隔"></div>
+    <div class="form-field"><label>核心能力</label><input id="n_capabilities" placeholder="OEM/ODM, custom size, engineering support"></div>
+    <div class="form-field"><label>认证/资质</label><input id="n_certifications" placeholder="只填写已真实拥有的认证"></div>
+    <div class="form-field"><label>MOQ 说明</label><input id="n_moqPolicy" placeholder="未知可留空，禁止让模型编造"></div>
+    <div class="form-field"><label>交期说明</label><input id="n_leadTimePolicy" placeholder="未知可留空，禁止让模型编造"></div>
+    <div class="form-field"><label>写作语气</label><input id="n_tone" value="professional, specific, practical, procurement-focused"></div>
+    <div class="form-field span-all"><label>必须表达</label><textarea id="n_mustSay" placeholder="一行一条"></textarea></div>
+    <div class="form-field span-all"><label>禁止表达 / 禁止编造声明</label><textarea id="n_mustNotSay" placeholder="一行一条，例如：不得编造认证、工厂规模、客户案例、MOQ、交期、测试数据"></textarea></div>
+  ` : `
+    <div class="form-field"><label>网站ID *</label><input id="n_siteId" placeholder="my-site"></div>
+    <div class="form-field"><label>网站名称</label><input id="n_siteName"></div>
+    <div class="form-field"><label>域名</label><input id="n_domain" placeholder="https://..."></div>
+    <div class="form-field"><label>语言</label><input id="n_language" value="en"></div>
+    <div class="form-field span-all"><label>品牌定位</label><textarea id="n_positioning" placeholder="这个品牌帮助谁，解决什么问题，最终引导什么转化"></textarea></div>
+    <div class="form-field"><label>作者姓名</label><input id="n_authorName"></div>
+    <div class="form-field"><label>作者职位</label><input id="n_authorTitle"></div>
+    <div class="form-field"><label>写作语气</label><input id="n_tone" placeholder="clear, practical, specific"></div>
+    <div class="form-field"><label>目标受众</label><input id="n_targetAudience" placeholder="逗号分隔"></div>
+    <div class="form-field span-all"><label>必须表达</label><textarea id="n_mustSay" placeholder="一行一条"></textarea></div>
+    <div class="form-field span-all"><label>禁止表达</label><textarea id="n_mustNotSay" placeholder="一行一条"></textarea></div>
+  `;
+}
+
 function switchSubtab(group, name) {
   document.querySelectorAll(`#${group}Tabs .subtab`).forEach(btn => btn.classList.remove('on'));
-  event.currentTarget.classList.add('on');
+  const activeBtn = (typeof event !== 'undefined' && event?.currentTarget) ? event.currentTarget : document.querySelector(`#${group}Tabs .subtab[onclick*="'${name}'"]`);
+  activeBtn?.classList.add('on');
   document.querySelectorAll(`[id^="${group}-"].subpane`).forEach(p => p.classList.remove('on'));
   document.getElementById(`${group}-${name}`)?.classList.add('on');
 }
@@ -921,7 +1030,12 @@ function renderStats() {
 }
 
 function typeOptions(selectedValue = 'buying-guide') {
-  return Object.entries(TYPE_ZH).map(([value,label]) => `<option value="${value}" ${value===selectedValue?'selected':''}>${label}</option>`).join('');
+  const types = isB2BSite() ? B2B_TYPE_ZH : TYPE_ZH;
+  return Object.entries(types).map(([value,label]) => `<option value="${value}" ${value===selectedValue?'selected':''}>${label}</option>`).join('');
+}
+
+function typeLabel(value) {
+  return (isB2BSite() ? B2B_TYPE_ZH[value] : TYPE_ZH[value]) || B2B_TYPE_ZH[value] || TYPE_ZH[value] || value || '—';
 }
 
 async function patch(slug, field, value) {
@@ -1236,7 +1350,7 @@ function updateWorkspaceStatus(row = {}) {
   const el = document.getElementById('workspaceStatus');
   if (!el) return;
   const status = STATUS_ZH[row.status || 'queued'] || row.status || '待生成';
-  const type = TYPE_ZH[row.articletype] || row.articletype || '—';
+  const type = typeLabel(row.articletype);
   const words = [row.wordCount ? `${row.wordCount} 字` : '', row.targetwordcount ? `目标 ${row.targetwordcount}` : ''].filter(Boolean).join(' / ') || '字数待生成';
   const qa = row.qaScore != null ? `QA ${row.qaScore}` : 'QA 待生成';
   el.innerHTML = `状态：${esc(status)}<br>类型：${esc(type)}<br>${esc(words)}<br>${esc(qa)}`;
@@ -1294,11 +1408,32 @@ async function loadPublishPack(slug) {
   setWorkspaceNavState('publish', '已准备');
   const seoTitles = res.seoTitles && res.seoTitles.length ? res.seoTitles : ['暂无 SEO 标题'];
   const meta = res.metaDescription || '';
+  const ctas = res.publishCtas || [];
+  const b2b = res.b2bPublish || null;
   el.innerHTML = `
     <div class="pack-section">
       <div class="pack-title">SEO标题三选</div>
       <div class="seo-title-list">${seoTitles.map(t => `<button class="btn seo-title-btn" onclick="copyText('${escAttr(t)}')">${esc(t)}</button>`).join('')}</div>
     </div>
+    ${b2b ? `<div class="pack-section">
+      <div class="pack-title">B2B 发布信息</div>
+      <div class="mini-table-wrap"><table class="mini-table"><tbody>
+        ${[
+          ['采购角色', b2b.buyerRole],
+          ['漏斗阶段', b2b.funnelStage],
+          ['行业', b2b.industry],
+          ['应用场景', b2b.application],
+          ['产品线', b2b.productLine],
+          ['CTA 类型', b2b.ctaType],
+          ['证据要求', b2b.evidenceNeeded],
+          ['询盘目标', b2b.rfqTarget],
+        ].filter(([,v]) => v).map(([k,v]) => `<tr><td style="width:130px;color:var(--text3)">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('') || '<tr><td class="hint">关键词表未填写 B2B 发布字段</td></tr>'}
+      </tbody></table></div>
+    </div>` : ''}
+    ${ctas.length ? `<div class="pack-section">
+      <div class="pack-title">推荐转化 CTA</div>
+      ${ctas.map(c => `<div class="check-row"><span class="badge badge-running">${esc(c.type)}</span><span style="flex:1"><strong>${esc(c.label)}</strong><br><span class="hint">${esc(c.note || '')}</span></span><button class="btn btn-sm" onclick="copyText('${escAttr(c.url)}')">复制URL</button></div>`).join('')}
+    </div>` : ''}
     <div class="pack-section">
       <div class="pack-title">WordPress 发布</div>
       <button class="btn btn-green" onclick="publishWordPress(this)">发布为 WordPress 草稿</button>
@@ -1336,12 +1471,14 @@ function renderOutline(outline = {}) {
     outline = normalizeOutlineForView(outline);
   }
   const sections = outline.sections || [];
+  const coverage = renderOutlineKeywordCoverage(outline.keywordCoveragePlan);
   return `<div class="pack-section">
     <div class="pack-title">文章大纲</div>
     <h2 style="font-size:18px;margin-bottom:6px">${esc(outline.workingTitle || outline.keyword || '未命名大纲')}</h2>
     <div class="hint">搜索意图：${esc(outline.searchIntent || '—')} · 目标字数：${esc(outline.targetWordCount || '—')}</div>
     ${outline.readerPromise ? `<p style="margin-top:8px;color:var(--text2)">${esc(outline.readerPromise)}</p>` : ''}
   </div>
+  ${coverage}
   <div class="outline-list">${sections.map(sec => `<div class="outline-item">
     <h3>${esc(sec.level || 'H2')} · ${esc(sec.heading || '')}</h3>
     ${sec.purpose ? `<p>${esc(sec.purpose)}</p>` : ''}
@@ -1351,6 +1488,21 @@ function renderOutline(outline = {}) {
   ${(outline.faq || []).length ? `<div class="pack-section"><div class="pack-title">FAQ规划</div>${outline.faq.map(f => `<div class="check-row"><span>Q: ${esc(f.question || '')}</span></div>`).join('')}</div>` : ''}
   ${outline.cta ? `<div class="pack-section"><div class="pack-title">CTA</div><div>${esc(outline.cta)}</div></div>` : ''}
   ${(outline.qaRisks || []).length ? `<div class="pack-section"><div class="pack-title">QA风险</div>${outline.qaRisks.map(r => `<div class="qa-fail-item warn">⚠ ${esc(r)}</div>`).join('')}</div>` : ''}`;
+}
+
+function renderOutlineKeywordCoverage(plan = {}) {
+  const rows = [
+    ...(plan.primary || []).map(item => ({ ...item, type: '主关键词' })),
+    ...(plan.secondary || []).map(item => ({ ...item, type: '子关键词' })),
+    ...(plan.variants || []).map(item => ({ ...item, type: '变体/长尾词' })),
+  ].filter(item => item.term);
+  if (!rows.length) return '';
+  return `<div class="pack-section">
+    <div class="pack-title">关键词覆盖计划</div>
+    <table class="mini-table"><thead><tr><th>类型</th><th>关键词</th><th>计划位置</th><th>对应章节</th></tr></thead><tbody>
+      ${rows.map(item => `<tr><td>${esc(item.type)}</td><td>${esc(item.term)}</td><td>${esc(item.plannedPlacement || '自然覆盖')}</td><td>${esc(item.sectionHeading || '—')}</td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
 }
 
 function normalizeOutlineForView(outline = {}) {
@@ -1371,7 +1523,7 @@ function normalizeOutlineForView(outline = {}) {
       {
         level: 'H2',
         heading: 'Difficulty, time, and kit expectations',
-        purpose: 'Set honest Nookcraft expectations before recommending products.',
+        purpose: 'Set honest brand expectations before recommending products.',
         keyPoints: ['Mention English photo instructions.', 'Disclose realistic build time and difficulty.', 'Avoid banned vague praise.'],
       },
       {
@@ -1431,12 +1583,31 @@ function renderQa(qa = {}) {
   }).join('');
   const hard = (qa.hardFails || []).map(f => `<div class="qa-fail-item hard">✕ ${esc(f.message || f.id || f)}</div>`).join('');
   const warns = (qa.warnings || []).map(w => `<div class="qa-fail-item warn">⚠ ${esc(w.message || w.id || w)}</div>`).join('');
+  const coverage = renderQaKeywordCoverage(qa.keywordCoverage);
   return `<div class="pack-section">
     <div class="pack-title">综合质检</div>
     <span class="qa-score-big">${qa.score ?? '—'}</span><span class="hint"> / 100 · ${qa.pass ? '通过' : '未通过'} · ${qa.wordCount || 0} words · 内链 ${qa.internalLinkCount || 0}</span>
   </div>
+  ${coverage}
   <div class="qa-wrap">${scoreRows}</div>
   <div class="qa-fail-list">${hard || ''}${warns || ''}</div>`;
+}
+
+function renderQaKeywordCoverage(coverage) {
+  if (!coverage) return '';
+  const rows = [
+    ...(coverage.primary || []).map(item => ({ ...item, label: '主关键词' })),
+    ...(coverage.secondary || []).map(item => ({ ...item, label: '子关键词' })),
+    ...(coverage.variants || []).map(item => ({ ...item, label: '变体/长尾词' })),
+  ];
+  if (!rows.length) return '';
+  return `<div class="pack-section">
+    <div class="pack-title">关键词覆盖检查</div>
+    <div class="hint">必需覆盖：${coverage.requiredCovered || 0} / ${coverage.requiredTotal || 0} · 可选覆盖：${coverage.optionalCovered || 0} / ${coverage.optionalTotal || 0}</div>
+    <table class="mini-table" style="margin-top:8px"><thead><tr><th>类型</th><th>关键词</th><th>状态</th></tr></thead><tbody>
+      ${rows.map(item => `<tr><td>${esc(item.label)}</td><td>${esc(item.term)}</td><td><span class="badge ${item.found ? 'badge-done' : item.required ? 'badge-failed' : 'badge-queued'}">${item.found ? '已覆盖' : item.required ? '缺失' : '可选未用'}</span></td></tr>`).join('')}
+    </tbody></table>
+  </div>`;
 }
 
 async function loadImagePlan(slug) {
@@ -1709,6 +1880,7 @@ function switchSubtabByName(group, name) {
 }
 
 function renderConfig() {
+  updateConfigLabels();
   renderSiteConfig();
   renderAuthorConfig();
   renderKnowledgeConfig();
@@ -1718,8 +1890,40 @@ function renderConfig() {
   renderSettingsWordPress();
 }
 
+function currentSiteType() {
+  return (configs.site && configs.site.siteType === 'b2b') ? 'b2b' : 'b2c';
+}
+
+function isB2BSite() {
+  return currentSiteType() === 'b2b';
+}
+
+function configLabel(key) {
+  const b2b = isB2BSite();
+  const labels = {
+    site: b2b ? '公司设置' : '品牌设置',
+    author: b2b ? '团队档案' : '作者档案',
+    knowledge: b2b ? '产品与行业知识' : '品类知识',
+    links: b2b ? '产品/解决方案内链库' : '内链库',
+    project: b2b ? 'B2B 写作指令' : 'Project 指令',
+  };
+  return labels[key] || key;
+}
+
+function updateConfigLabels() {
+  const addType = document.getElementById('f_articletype');
+  if (addType) addType.innerHTML = typeOptions(addType.value);
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  set('configTab-site', configLabel('site'));
+  set('configTab-author', configLabel('author'));
+  set('configTab-knowledge', configLabel('knowledge'));
+  set('configTab-links', configLabel('links'));
+  set('configTab-project-instructions', configLabel('project'));
+}
+
 function renderSiteConfig() {
   const s = configs.site || {};
+  if (isB2BSite()) return renderB2BSiteConfig();
   const style = s.writingStyle || {};
   const wp = s.wordpress || {};
   document.getElementById('config-site').innerHTML = `<div class="config-card"><div class="form-grid">
@@ -1751,6 +1955,47 @@ function renderSiteConfig() {
   </div>`;
 }
 
+function renderB2BSiteConfig() {
+  const s = configs.site || {};
+  const style = s.writingStyle || {};
+  const wp = s.wordpress || {};
+  document.getElementById('config-site').innerHTML = `<div class="config-card"><div class="form-grid">
+    ${field('c_siteId','网站ID',s.siteId || currentSite,'readonly')}
+    ${field('c_siteType','站点类型',s.siteType || 'b2b','readonly')}
+    ${field('c_siteName','公司/网站名称',s.siteName)}
+    ${field('c_domain','域名',s.domain)}
+    ${field('c_language','语言',s.language || 'en')}
+    ${field('c_businessModel','业务模式',s.businessModel)}
+    ${textarea('c_positioning','公司定位',s.positioning,'span-all')}
+    ${textarea('c_targetMarkets','目标市场',toLines(s.targetMarkets),'span-all')}
+    ${textarea('c_targetIndustries','目标行业',toLines(s.targetIndustries),'span-all')}
+    ${textarea('c_buyerRoles','采购角色',toLines(s.buyerRoles),'span-all')}
+    ${field('c_conversionGoal','转化目标',s.conversionGoal)}
+    ${field('c_tone','写作语气',style.tone || '')}
+    ${textarea('c_coreProducts','主营产品',toLines(s.coreProducts),'span-all')}
+    ${textarea('c_capabilities','公司能力',toLines(s.capabilities),'span-all')}
+    ${textarea('c_certifications','已有认证/标准',toLines(s.certifications),'span-all')}
+    ${textarea('c_qualityControl','质量控制',toLines(s.qualityControl),'span-all')}
+    ${field('c_leadTimePolicy','交期表达规则',s.leadTimePolicy)}
+    ${field('c_moqPolicy','MOQ 表达规则',s.moqPolicy)}
+    ${textarea('c_avoidStyle','避免风格',toLines(style.avoidStyle),'span-all')}
+    ${textarea('c_mustSay','必须表达',toLines(s.mustSay),'span-all')}
+    ${textarea('c_mustNotSay','禁止表达',toLines(s.mustNotSay),'span-all')}
+  </div><button class="btn btn-green btn-sm" onclick="saveSiteConfig(this)">保存公司设置</button></div>
+  <div class="config-card">
+    <div class="card-head"><span class="card-title">WordPress 发布接口</span><span class="hint">使用 WordPress Application Password；默认发布为草稿，SEO 字段会随文章一起提交。</span></div>
+    <div class="form-grid">
+      ${field('c_wpEndpoint','WordPress站点/接口地址',wp.endpoint || s.domain || '')}
+      ${field('c_wpUsername','WordPress用户名',wp.username || '')}
+      <div class="form-field"><label>Application Password</label><input id="c_wpAppPassword" type="password" value="${escAttr(wp.appPassword || '')}" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"></div>
+      <div class="form-field"><label>默认发布状态</label><select id="c_wpStatus"><option value="draft" ${wp.defaultStatus !== 'publish' ? 'selected' : ''}>草稿 draft</option><option value="publish" ${wp.defaultStatus === 'publish' ? 'selected' : ''}>直接发布 publish</option></select></div>
+      ${field('c_wpCategories','默认分类ID（逗号分隔）',Array.isArray(wp.categories) ? wp.categories.join(',') : (wp.categories || ''))}
+      ${field('c_wpTags','默认标签ID（逗号分隔）',Array.isArray(wp.tags) ? wp.tags.join(',') : (wp.tags || ''))}
+    </div>
+    <button class="btn btn-green btn-sm" onclick="saveSiteConfig(this)">保存WordPress设置</button>
+  </div>`;
+}
+
 function renderSettingsWordPress() {
   const el = document.getElementById('settings-wordpress');
   if (!el) return;
@@ -1774,17 +2019,21 @@ function renderSettingsWordPress() {
 function renderProjectInstructionsConfig() {
   const el = document.getElementById('config-project-instructions');
   if (!el) return;
+  const title = configLabel('project');
+  const hint = isB2BSite()
+    ? 'B2B 站点级写作 SOP，会参与大纲和正文生成；适合放采购视角、证据要求、合规边界、询盘导向和输出格式。'
+    : '站点级全局写作 SOP，会参与大纲和正文生成；适合放品牌规则、合规边界、输出格式和工作流程。';
   el.innerHTML = `<div class="config-card">
     <div class="card-head">
-      <span class="card-title">Project 指令</span>
-      <span class="hint">站点级全局写作 SOP，会参与大纲和正文生成；适合放品牌规则、合规边界、输出格式和工作流程。</span>
+      <span class="card-title">${title}</span>
+      <span class="hint">${hint}</span>
     </div>
     <div class="form-field span-all">
       <label>project-instructions.md</label>
       <textarea id="c_projectInstructions" style="min-height:620px;font-family:'SF Mono','Consolas',monospace;font-size:12px;line-height:1.6">${esc(configs.projectInstructions || '')}</textarea>
     </div>
     <div class="form-actions" style="margin-top:10px">
-      <button class="btn btn-green" onclick="saveProjectInstructionsConfig(this)">保存 Project 指令</button>
+      <button class="btn btn-green" onclick="saveProjectInstructionsConfig(this)">保存 ${title}</button>
       <span class="hint">保存后写入当前站点目录的 project-instructions.md。</span>
     </div>
   </div>`;
@@ -1792,6 +2041,21 @@ function renderProjectInstructionsConfig() {
 
 function renderAuthorConfig() {
   const a = configs.author || {};
+  if (isB2BSite()) {
+    document.getElementById('config-author').innerHTML = `<div class="config-card"><div class="form-grid">
+      ${field('c_companyName','公司名称',a.companyName || configs.site.siteName || '')}
+      ${field('c_teamName','团队名称',a.teamName || 'Product & Project Support Team')}
+      ${field('c_teamRole','团队角色',a.teamRole)}
+      ${textarea('c_authorBg','团队/公司背景',a.background,'span-all')}
+      ${textarea('c_factoryStory','工厂/公司故事',a.factoryStory,'span-all')}
+      ${textarea('c_engineeringExperience','工程/产品支持经验',toLines(a.engineeringExperience),'span-all')}
+      ${textarea('c_qualityControlExperience','质检经验',toLines(a.qualityControlExperience),'span-all')}
+      ${textarea('c_exportExperience','出口/项目经验',toLines(a.exportExperience),'span-all')}
+      ${textarea('c_caseStoryBank','案例/项目故事素材',toLines(a.caseStoryBank),'span-all')}
+      ${textarea('c_authorStyle','写作说明',a.writingNotes,'span-all')}
+    </div><button class="btn btn-green btn-sm" onclick="saveAuthorConfig(this)">保存团队档案</button></div>`;
+    return;
+  }
   document.getElementById('config-author').innerHTML = `<div class="config-card"><div class="form-grid">
     ${field('c_authorName','作者姓名',a.name)}
     ${field('c_authorTitle','职位/身份',a.title)}
@@ -1803,6 +2067,18 @@ function renderAuthorConfig() {
 
 function renderKnowledgeConfig() {
   const k = configs.knowledge || {};
+  if (isB2BSite()) {
+    document.getElementById('config-knowledge').innerHTML = `
+      <details class="config-card" open><summary>术语表</summary><div style="margin-top:10px">${renderTermTable(k.terminology || [])}<button class="btn btn-sm" onclick="addTerm()">＋ 增加术语</button></div></details>
+      <details class="config-card" open><summary>产品线</summary><div style="margin-top:10px" id="productLinesList">${renderListRows(k.productLines || [], 'productLine')}</div><button class="btn btn-sm" onclick="addListRow('productLine')">＋ 增加产品线</button></details>
+      <details class="config-card" open><summary>材料/规格/工艺</summary><div style="margin-top:10px" id="specsList">${renderListRows([...(k.materials || []), ...(k.specifications || []), ...(k.manufacturingProcess || [])], 'spec')}</div><button class="btn btn-sm" onclick="addListRow('spec')">＋ 增加资料</button></details>
+      <details class="config-card" open><summary>质量控制/认证</summary><div style="margin-top:10px" id="qualitysList">${renderListRows([...(k.qualityControl || []), ...(k.certifications || [])], 'quality')}</div><button class="btn btn-sm" onclick="addListRow('quality')">＋ 增加资料</button></details>
+      <details class="config-card" open><summary>应用场景/行业</summary><div style="margin-top:10px" id="applicationsList">${renderListRows([...(k.applications || []), ...(k.industries || [])], 'application')}</div><button class="btn btn-sm" onclick="addListRow('application')">＋ 增加场景</button></details>
+      <details class="config-card" open><summary>采购/技术 FAQ</summary><div style="margin-top:10px">${renderFaqTable(k.procurementFAQ || k.technicalFAQ || k.buyerFAQ || [])}<button class="btn btn-sm" onclick="addFaq()">＋ 增加问答</button></div></details>
+      <details class="config-card" open><summary>案例/卖点/合规边界</summary><div style="margin-top:10px" id="caseStudysList">${renderListRows([...(k.caseStudies || []), ...(k.sellingPoints || []), ...(k.complianceBoundaries || [])], 'caseStudy')}</div><button class="btn btn-sm" onclick="addListRow('caseStudy')">＋ 增加内容</button></details>
+      <button class="btn btn-green btn-sm" onclick="saveKnowledgeConfig(this)">保存产品与行业知识</button>`;
+    return;
+  }
   document.getElementById('config-knowledge').innerHTML = `
     <details class="config-card" open><summary>术语表</summary><div style="margin-top:10px">${renderTermTable(k.terminology || [])}<button class="btn btn-sm" onclick="addTerm()">＋ 增加术语</button></div></details>
     <details class="config-card" open><summary>权威事实</summary><div style="margin-top:10px" id="factsList">${renderListRows(k.authorityFacts || [], 'fact')}</div><button class="btn btn-sm" onclick="addListRow('fact')">＋ 增加事实</button></details>
@@ -1812,6 +2088,19 @@ function renderKnowledgeConfig() {
 
 function renderLinksConfig() {
   const l = configs.links || {};
+  if (isB2BSite()) {
+    document.getElementById('config-links').innerHTML = `
+      ${renderLinkSection('解决方案页（最高优先级）','solutionPages',l.solutionPages || [])}
+      ${renderLinkSection('产品页','productPages',l.productPages || [])}
+      ${renderLinkSection('行业页','industryPages',l.industryPages || [])}
+      ${renderLinkSection('应用场景页','applicationPages',l.applicationPages || [])}
+      ${renderLinkSection('案例页','caseStudies',l.caseStudies || [])}
+      ${renderLinkSection('认证/能力页','certificationPages',l.certificationPages || [])}
+      ${renderLinkSection('询盘/联系/下载页','contactPages',l.contactPages || [])}
+      ${renderLinkSection('已发布博客','blogPosts',l.blogPosts || [])}
+      <button class="btn btn-green btn-sm" onclick="saveLinksConfig(this)">保存产品/解决方案内链库</button>`;
+    return;
+  }
   document.getElementById('config-links').innerHTML = `
     ${renderLinkSection('专题页（最高优先级）','pillarPages',l.pillarPages || [])}
     ${renderLinkSection('产品分类页','categoryPages',l.categoryPages || [])}
@@ -1877,8 +2166,43 @@ function fromLines(value) {
 }
 
 function collectSiteConfig() {
+  if (isB2BSite()) {
+    return {
+      ...configs.site,
+      siteId: val('c_siteId') || currentSite,
+      siteType: 'b2b',
+      siteName: val('c_siteName'),
+      domain: val('c_domain'),
+      language: val('c_language') || 'en',
+      businessModel: val('c_businessModel'),
+      positioning: val('c_positioning'),
+      targetMarkets: fromLines(val('c_targetMarkets')),
+      targetIndustries: fromLines(val('c_targetIndustries')),
+      buyerRoles: fromLines(val('c_buyerRoles')),
+      conversionGoal: val('c_conversionGoal'),
+      coreProducts: fromLines(val('c_coreProducts')),
+      capabilities: fromLines(val('c_capabilities')),
+      certifications: fromLines(val('c_certifications')),
+      qualityControl: fromLines(val('c_qualityControl')),
+      leadTimePolicy: val('c_leadTimePolicy'),
+      moqPolicy: val('c_moqPolicy'),
+      mustSay: fromLines(val('c_mustSay')),
+      mustNotSay: fromLines(val('c_mustNotSay')),
+      writingStyle: { ...(configs.site.writingStyle || {}), tone: val('c_tone'), avoidStyle: fromLines(val('c_avoidStyle')) },
+      wordpress: {
+        ...(configs.site.wordpress || {}),
+        endpoint: val('c_wpEndpoint'),
+        username: val('c_wpUsername'),
+        appPassword: val('c_wpAppPassword'),
+        defaultStatus: val('c_wpStatus') || 'draft',
+        categories: fromLines(val('c_wpCategories')),
+        tags: fromLines(val('c_wpTags')),
+      },
+    };
+  }
   return {
     ...configs.site,
+    siteType: configs.site.siteType || 'b2c',
     siteId: val('c_siteId') || currentSite,
     siteName: val('c_siteName'),
     domain: val('c_domain'),
@@ -1902,12 +2226,53 @@ function collectSiteConfig() {
   };
 }
 function collectAuthorConfig() {
+  if (isB2BSite()) {
+    return {
+      ...configs.author,
+      profileType: 'team',
+      companyName: val('c_companyName'),
+      teamName: val('c_teamName'),
+      teamRole: val('c_teamRole'),
+      background: val('c_authorBg'),
+      factoryStory: val('c_factoryStory'),
+      engineeringExperience: fromLines(val('c_engineeringExperience')),
+      qualityControlExperience: fromLines(val('c_qualityControlExperience')),
+      exportExperience: fromLines(val('c_exportExperience')),
+      caseStoryBank: fromLines(val('c_caseStoryBank')),
+      writingNotes: val('c_authorStyle'),
+    };
+  }
   return { ...configs.author, name: val('c_authorName'), title: val('c_authorTitle'), background: val('c_authorBg'), writingStyleNotes: val('c_authorStyle'), storyBank: fromLines(val('c_storyBank')) };
 }
 function collectKnowledgeConfig() {
+  if (isB2BSite()) {
+    return {
+      ...configs.knowledge,
+      terminology: readTable('termTbl', ['zh','en','definition']),
+      productLines: [...document.querySelectorAll('[data-list="productLine"]')].map(i => i.value.trim()).filter(Boolean),
+      specifications: [...document.querySelectorAll('[data-list="spec"]')].map(i => i.value.trim()).filter(Boolean),
+      qualityControl: [...document.querySelectorAll('[data-list="quality"]')].map(i => i.value.trim()).filter(Boolean),
+      applications: [...document.querySelectorAll('[data-list="application"]')].map(i => i.value.trim()).filter(Boolean),
+      procurementFAQ: readTable('faqTbl', ['question','answer']),
+      caseStudies: [...document.querySelectorAll('[data-list="caseStudy"]')].map(i => i.value.trim()).filter(Boolean),
+    };
+  }
   return { ...configs.knowledge, terminology: readTable('termTbl', ['zh','en','definition']), authorityFacts: [...document.querySelectorAll('[data-list="fact"]')].map(i => i.value.trim()).filter(Boolean), buyerFAQ: readTable('faqTbl', ['question','answer']) };
 }
 function collectLinksConfig() {
+  if (isB2BSite()) {
+    return {
+      ...configs.links,
+      solutionPages: readLinks('solutionPages'),
+      productPages: readLinks('productPages'),
+      industryPages: readLinks('industryPages'),
+      applicationPages: readLinks('applicationPages'),
+      caseStudies: readLinks('caseStudies'),
+      certificationPages: readLinks('certificationPages'),
+      contactPages: readLinks('contactPages'),
+      blogPosts: readLinks('blogPosts'),
+    };
+  }
   return { ...configs.links, pillarPages: readLinks('pillarPages'), categoryPages: readLinks('categoryPages'), productPages: readLinks('productPages'), blogPosts: readLinks('blogPosts'), trustPages: readLinks('trustPages') };
 }
 function collectStyleReferenceConfig() {
@@ -2016,9 +2381,10 @@ function renderLogic() {
 }
 function renderArticleTypes() {
   const data = templates['article-types'] || {};
+  const scopeLabel = templateScope === 'b2b' ? 'B端 / 外贸 / 制造站' : templateScope === 'common' ? '通用基础' : 'C端 / DTC';
   document.getElementById('logic-article-types').innerHTML = `<div class="config-card">
     <div class="card-head">
-      <span class="card-title">文章类型策略</span>
+      <span class="card-title">${scopeLabel}文章类型策略</span>
       <span class="hint">这里维护文章类型的全局策略 JSON，不写固定标题句式或硬编码开头，避免文章同质化。</span>
     </div>
     <div class="form-field span-all">
@@ -2052,10 +2418,7 @@ function formatArticleTypesJson() {
   }
 }
 function resetAllArticleTypes() {
-  if (!confirm('恢复文章类型策略默认骨架？当前未保存的修改会被覆盖。')) return;
-  templates['article-types'] = stripHardcodedArticleTemplates(DEFAULT_ARTICLE_TYPES);
-  renderArticleTypes();
-  log('文章类型策略已恢复为默认骨架，保存后生效', 'ok');
+  restoreTemplate('article-types');
 }
 function collectArticleTypes() {
   const raw = document.getElementById('articleTypesJson')?.value || '{}';
@@ -2149,21 +2512,21 @@ async function saveQaRules(btn) {
   await saveTemplate('qa-rules', btn, '保存QA设置');
 }
 async function saveTemplate(key, btn, original) {
-  const res = await api('POST', `/templates/${key}`, { content: templates[key] });
-  if (res) { savedButton(btn, original); log(`${key}.json 已保存`, 'ok'); }
+  const res = await api('POST', `/templates/${key}?type=${encodeURIComponent(templateScope)}`, { content: templates[key] });
+  if (res) { savedButton(btn, original); log(`${templateScope}/${key}.json 已保存`, 'ok'); }
 }
 async function restoreTemplate(key) {
   if (!confirm(`恢复 ${key}.json 为默认值？当前自定义内容会被删除。`)) return;
-  const res = await api('DELETE', `/templates/${key}`);
+  const res = await api('DELETE', `/templates/${key}?type=${encodeURIComponent(templateScope)}`);
   if (!res) return;
-  templates[key] = structuredClone(key === 'article-types' ? DEFAULT_ARTICLE_TYPES : key === 'prompt-sections' ? DEFAULT_PROMPT_SECTIONS : DEFAULT_QA_RULES);
-  renderLogic();
-  log(`${key}.json 已恢复默认`, 'ok');
+  await loadTemplates();
+  log(`${templateScope}/${key}.json 已恢复默认`, 'ok');
 }
 
 async function createSite(btn) {
   const body = {
     siteId: val('n_siteId'),
+    siteType: createSiteMode,
     siteName: val('n_siteName'),
     domain: val('n_domain'),
     language: val('n_language') || 'en',
@@ -2172,6 +2535,16 @@ async function createSite(btn) {
     authorTitle: val('n_authorTitle'),
     tone: val('n_tone'),
     targetAudience: val('n_targetAudience'),
+    businessModel: val('n_businessModel'),
+    conversionGoal: val('n_conversionGoal'),
+    targetMarkets: val('n_targetMarkets'),
+    targetIndustries: val('n_targetIndustries'),
+    buyerRoles: val('n_buyerRoles'),
+    coreProducts: val('n_coreProducts'),
+    capabilities: val('n_capabilities'),
+    certifications: val('n_certifications'),
+    moqPolicy: val('n_moqPolicy'),
+    leadTimePolicy: val('n_leadTimePolicy'),
     mustSay: val('n_mustSay'),
     mustNotSay: val('n_mustNotSay'),
   };
@@ -2254,11 +2627,19 @@ function renderSetupRequired(items = []) {
   const el = document.getElementById('setupRequired');
   if (!el) return;
   setupRequiredItems = items;
-  el.innerHTML = `<table class="mini-table"><thead><tr><th>需要的文件</th><th>用途</th><th>状态</th></tr></thead><tbody>${items.map(item => `<tr>
+  const preferBackendLabels = isB2BSite();
+  const labelFor = item => {
+    if (preferBackendLabels) return [item.label, item.description];
+    return SETUP_REQUIRED_ZH[item.file] || [item.label, item.description];
+  };
+  el.innerHTML = `<table class="mini-table"><thead><tr><th>需要的文件</th><th>用途</th><th>状态</th></tr></thead><tbody>${items.map(item => {
+    const labels = labelFor(item);
+    return `<tr>
     <td style="font-family:monospace">${esc(item.file)}</td>
-    <td><strong>${esc((SETUP_REQUIRED_ZH[item.file] || [item.label])[0])}</strong><br><span class="hint">${esc((SETUP_REQUIRED_ZH[item.file] || [null, item.description])[1])}</span></td>
+    <td><strong>${esc(labels[0] || item.label || item.file)}</strong><br><span class="hint">${esc(labels[1] || item.description || '')}</span></td>
     <td><span class="badge ${item.complete ? 'badge-done' : item.exists ? 'badge-running' : 'badge-queued'}">${item.complete ? '\u5df2\u4e0a\u4f20\u5b8c\u6210' : item.exists ? '\u5df2\u521b\u5efa\u9aa8\u67b6\uff0c\u5f85\u8865\u5145' : '\u672a\u4e0a\u4f20'}</span></td>
-  </tr>`).join('')}</tbody></table>`;
+  </tr>`;
+  }).join('')}</tbody></table>`;
 }
 
 function renderSetupPreview() {

@@ -1,0 +1,30 @@
+{
+  "hardFail": [
+    { "id": "empty_article", "check": "article_tag_missing", "message": "Missing <article> root element" },
+    { "id": "too_short", "check": "too_short", "message": "Article is shorter than the configured word range" },
+    { "id": "forbidden_word", "check": "forbidden_word_found", "message": "Contains forbidden wording from site.json" },
+    { "id": "editor_markers", "check": "editor_markers_found", "message": "Contains TODO/editor/placeholder markers" },
+    { "id": "unsupported_certification_claim", "check": "unsupported_certification_detected", "message": "Article mentions a certification, standard, lab test, or compliance claim not found in site.json or knowledge.json." },
+    { "id": "fake_factory_claim", "check": "factory_claim_without_source", "message": "Article claims factory scale, capacity, equipment, years of experience, or export markets without source data." },
+    { "id": "unsupported_case_study", "check": "case_study_without_source", "message": "Article includes a customer case, project result, client name, or metric not found in case study data." },
+    { "id": "unsupported_lead_time_or_moq", "check": "leadtime_moq_without_source", "message": "Article mentions exact lead time, MOQ, sample time, price, or shipping terms without source data." },
+    { "id": "missing_b2b_cta", "check": "b2b_cta_absent", "message": "B2B article must include a procurement-oriented CTA." },
+    { "id": "missing_company_block", "check": "company_credibility_block_absent", "message": "B2B article must end with a company/team credibility block." },
+    { "id": "consumer_tone_detected", "check": "consumer_hype_language", "message": "B2B article uses consumer hype, cheap/best/easy claims, or vague promotional language." }
+  ],
+  "warnings": [
+    { "id": "internal_links_zero", "check": "internal_links_zero", "message": "No internal links detected" },
+    { "id": "keyword_coverage_missing", "check": "keyword_coverage_missing", "message": "Some required primary or secondary keywords were not naturally covered in the article." },
+    { "id": "missing_buyer_role", "check": "buyer_role_absent", "message": "Article does not clearly address procurement, engineering, contractor, distributor, or business buyer concerns." },
+    { "id": "missing_specs_table", "check": "spec_table_absent", "message": "A B2B product or supplier article should include a specs, selection criteria, or comparison table when relevant." },
+    { "id": "missing_solution_link", "check": "solution_link_absent", "message": "No link to a product, solution, case study, certification, or contact/RFQ page." },
+    { "id": "missing_procurement_faq", "check": "procurement_faq_absent", "message": "No procurement FAQ detected for MOQ, lead time, customization, sample, drawing, packaging, or shipping." }
+  ],
+  "scoreWeights": {
+    "seoStructure": 18,
+    "brandFit": 22,
+    "helpfulness": 24,
+    "readability": 16,
+    "publishReadiness": 20
+  }
+}

@@ -67,6 +67,18 @@ const KEYWORD_COLUMN_ALIASES = {
   volume: ['volume', 'vol', '搜索量'],
   kd: ['kd'],
   cannibalcheck: ['cannibalcheck', '蚕食风险检查'],
+  buyerrole: ['buyerrole', 'buyer role', 'buyer persona', 'role'],
+  funnelstage: ['funnelstage', 'funnel stage', 'stage'],
+  industry: ['industry', 'vertical', 'market'],
+  application: ['application', 'use case', 'usecase', 'scenario'],
+  productline: ['productline', 'product line', 'product category'],
+  geotarget: ['geotarget', 'geo target', 'market region', 'target market'],
+  ctatype: ['ctatype', 'cta type', 'cta'],
+  evidenceneeded: ['evidenceneeded', 'evidence needed', 'evidence'],
+  casetarget: ['casetarget', 'case target', 'case study'],
+  solutiontarget: ['solutiontarget', 'solution target', 'solution page'],
+  rfqtarget: ['rfqtarget', 'rfq target', 'quote target'],
+  compliancerisk: ['compliancerisk', 'compliance risk', 'risk'],
 };
 const stores = new Map();
 
@@ -162,9 +174,14 @@ router.post('/sites/:siteId/project-instructions', (req, res) => {
 router.get('/templates/:file', (req, res) => {
   try {
     const spec = getTemplateSpec(req.params.file);
-    const filePath = join(TEMPLATES_DIR, spec.filename);
-    if (!fs.existsSync(filePath)) return res.json({ content: spec.defaults(), isCustom: false });
-    res.json({ content: JSON.parse(fs.readFileSync(filePath, 'utf-8')), isCustom: true });
+    const { filePath, scope, fallbackPath } = getTemplatePath(spec, req.query.type);
+    if (fs.existsSync(filePath)) {
+      return res.json({ content: JSON.parse(fs.readFileSync(filePath, 'utf-8')), isCustom: true, scope });
+    }
+    if (fallbackPath && fs.existsSync(fallbackPath)) {
+      return res.json({ content: JSON.parse(fs.readFileSync(fallbackPath, 'utf-8')), isCustom: false, scope, fallback: 'legacy-root' });
+    }
+    res.json({ content: spec.defaults(scope), isCustom: false, scope });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -173,12 +190,13 @@ router.get('/templates/:file', (req, res) => {
 router.post('/templates/:file', (req, res) => {
   try {
     const spec = getTemplateSpec(req.params.file);
+    const { filePath, dirPath } = getTemplatePath(spec, req.query.type);
     const content = req.body?.content;
     if (!content || typeof content !== 'object' || Array.isArray(content)) {
       return res.status(400).json({ error: 'Body must be { content: object }' });
     }
-    fs.mkdirSync(TEMPLATES_DIR, { recursive: true });
-    fs.writeFileSync(join(TEMPLATES_DIR, spec.filename), JSON.stringify(content, null, 2), 'utf-8');
+    fs.mkdirSync(dirPath, { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(content, null, 2), 'utf-8');
     stores.clear();
     res.json({ ok: true });
   } catch (err) {
@@ -189,7 +207,7 @@ router.post('/templates/:file', (req, res) => {
 router.delete('/templates/:file', (req, res) => {
   try {
     const spec = getTemplateSpec(req.params.file);
-    const filePath = join(TEMPLATES_DIR, spec.filename);
+    const { filePath } = getTemplatePath(spec, req.query.type);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     stores.clear();
     res.json({ ok: true });
@@ -376,11 +394,13 @@ router.post('/sites/:siteId/setup-preview', async (req, res) => {
     if (!files.length) return res.status(400).json({ error: 'Body must include files: [{ name, content }]' });
     const expanded = await expandImportFiles(files);
     const apiConfig = pickApiConfig(req.body || {});
+    const siteConfig = readJsonFile(join(getSiteDir(siteId), 'site.json')) || {};
+    const siteType = normalizeSiteType(siteConfig.siteType);
     const previews = [];
     for (let i = 0; i < expanded.length; i++) {
       const file = expanded[i];
       const heuristic = await previewImportFile(siteId, file, i);
-      const ai = apiConfig.apiKey ? await classifySetupFileWithAI(file, apiConfig).catch(err => ({ error: err.message })) : null;
+      const ai = apiConfig.apiKey ? await classifySetupFileWithAI(file, apiConfig, siteType).catch(err => ({ error: err.message })) : null;
       previews.push(normalizeSetupPreview(file, heuristic, ai, i));
     }
     res.json({ ok: true, required: setupRequiredFiles(siteId), files: previews });
@@ -753,19 +773,20 @@ async function createSiteHandler(req, res) {
   try {
     const input = req.body || {};
     const siteId = slugify(input.siteId || input.siteName || '');
+    const siteType = normalizeSiteType(input.siteType);
     if (!siteId) return res.status(400).json({ error: 'siteId is required' });
     const siteDir = join(SITES_DIR, siteId);
     if (fs.existsSync(siteDir)) return res.status(400).json({ error: `Site already exists: ${siteId}` });
 
     fs.mkdirSync(join(siteDir, 'outputs'), { recursive: true });
     fs.mkdirSync(join(siteDir, 'outlines'), { recursive: true });
-    fs.writeFileSync(join(siteDir, 'site.json'), JSON.stringify(makeDefaultSite(input, siteId), null, 2), 'utf-8');
-    fs.writeFileSync(join(siteDir, 'knowledge.json'), JSON.stringify(makeDefaultKnowledge(), null, 2), 'utf-8');
-    fs.writeFileSync(join(siteDir, 'author.json'), JSON.stringify(makeDefaultAuthor(input), null, 2), 'utf-8');
-    fs.writeFileSync(join(siteDir, 'links.json'), JSON.stringify(makeDefaultLinks(), null, 2), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'site.json'), JSON.stringify(makeDefaultSite(input, siteId, siteType), null, 2), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'knowledge.json'), JSON.stringify(makeDefaultKnowledge(siteType), null, 2), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'author.json'), JSON.stringify(makeDefaultAuthor(input, siteType), null, 2), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'links.json'), JSON.stringify(makeDefaultLinks(siteType), null, 2), 'utf-8');
     fs.writeFileSync(join(siteDir, 'style-reference.json'), JSON.stringify(makeDefaultStyleReference(), null, 2), 'utf-8');
-    fs.writeFileSync(join(siteDir, 'project-instructions.md'), defaultProjectInstructions(input), 'utf-8');
-    fs.writeFileSync(join(siteDir, 'keywords.csv'), defaultKeywordsCsv(), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'project-instructions.md'), defaultProjectInstructions(input, siteType), 'utf-8');
+    fs.writeFileSync(join(siteDir, 'keywords.csv'), defaultKeywordsCsv(siteType), 'utf-8');
     stores.delete(siteId);
     res.json({ ok: true, siteId });
   } catch (err) {
@@ -799,6 +820,9 @@ async function expandImportFiles(files) {
 
 async function previewImportFile(siteId, file, index = 0) {
   const siteDir = getSiteDir(siteId);
+  const siteConfig = readJsonFile(join(siteDir, 'site.json')) || {};
+  const siteType = normalizeSiteType(siteConfig.siteType);
+  const isB2B = siteType === 'b2b';
   const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
   const baseName = path.basename(rawName).toLowerCase();
   const dirName = path.dirname(rawName).replace(/\\/g, '/').toLowerCase();
@@ -834,7 +858,7 @@ async function previewImportFile(siteId, file, index = 0) {
     }
 
     if (isKnowledgeWorkbookName(baseName)) {
-      const mappedContent = await workbookToKnowledgeJson(buf, baseName);
+      const mappedContent = await workbookToKnowledgeJson(buf, baseName, siteType);
       return {
         ...preview,
         action: 'knowledge-xlsx-import',
@@ -843,6 +867,48 @@ async function previewImportFile(siteId, file, index = 0) {
         status: Object.keys(mappedContent).length ? 'ready' : 'ignored',
         confidence: 0.9,
         reason: 'Matched category cognition / knowledge workbook and converted workbook sheets into knowledge.json.',
+        mappedContent,
+      };
+    }
+
+    if (isB2B && isB2BKnowledgeTextName(baseName, text)) {
+      const mappedContent = textToB2BKnowledgeJson(text, rawName);
+      return {
+        ...preview,
+        action: 'b2b-knowledge-text-import',
+        target: 'knowledge.json',
+        module: 'knowledge',
+        status: hasAnyArrayContent(mappedContent) ? 'ready' : 'review',
+        confidence: 0.86,
+        reason: 'Matched B2B product, capability, certification, case, industry, or procurement knowledge file.',
+        mappedContent,
+      };
+    }
+
+    if (isB2B && isB2BTeamTextName(baseName, text)) {
+      const mappedContent = docxTextToTeamProfileJson(text, siteConfig);
+      return {
+        ...preview,
+        action: 'b2b-team-profile-import',
+        target: 'author.json',
+        module: 'author',
+        status: mappedContent.background || mappedContent.factoryStory || hasAnyArrayContent(mappedContent) ? 'ready' : 'review',
+        confidence: 0.86,
+        reason: 'Matched B2B company/team/factory profile and converted it into the team credibility profile.',
+        mappedContent,
+      };
+    }
+
+    if (isB2B && isB2BSiteTextName(baseName, text)) {
+      const mappedContent = docxTextToB2BSiteJson(text, siteConfig);
+      return {
+        ...preview,
+        action: 'b2b-site-profile-import',
+        target: 'site.json',
+        module: 'site',
+        status: mappedContent.siteName || mappedContent.positioning || mappedContent.coreProducts?.length ? 'ready' : 'review',
+        confidence: 0.82,
+        reason: 'Matched B2B company website variables and converted them into site.json fields.',
         mappedContent,
       };
     }
@@ -875,8 +941,8 @@ async function previewImportFile(siteId, file, index = 0) {
       };
     }
 
-    if (/links?\.(md|txt)$/i.test(baseName)) {
-      const mappedContent = markdownToLinksJson(text);
+    if (/links?\.(md|txt)$/i.test(baseName) || (isB2B && isB2BLinksTextName(baseName, text))) {
+      const mappedContent = markdownToLinksJson(text, siteType);
       return {
         ...preview,
         action: 'links-md-import',
@@ -951,7 +1017,17 @@ function isDocsImport(baseName, dirName = '') {
 
 function setupRequiredFiles(siteId) {
   const siteDir = getSiteDir(siteId);
-  const items = [
+  const site = readJsonFile(join(siteDir, 'site.json')) || {};
+  const siteType = normalizeSiteType(site.siteType);
+  const items = siteType === 'b2b' ? [
+    ['site.json', 'Company / website variables', 'Company name, domain, language, business model, markets, buyer roles, capabilities and claim policy.'],
+    ['author.json', 'Team credibility profile', 'Company/team background, engineering support, QC/export experience and case story material.'],
+    ['knowledge.json', 'Product and industry knowledge base', 'Product lines, materials, specs, manufacturing process, QC, certifications, applications, buyer FAQ and cases.'],
+    ['links.json', 'B2B internal link library', 'Solution pages, product pages, industry pages, case studies, certification pages, RFQ/contact pages and blogs.'],
+    ['style-reference.json', 'HTML style reference', 'Article components, specs tables, CTA, case blocks, FAQ accordion and brand visual rules.'],
+    ['project-instructions.md', 'B2B project instructions', 'B2B SOP, procurement-oriented writing rules, compliance boundaries, evidence rules and output format.'],
+    ['keywords.csv', 'B2B keyword plan', 'Keyword, slug, buyer role, funnel stage, industry, application, product line, CTA and evidence targets.'],
+  ] : [
     ['site.json', 'Site variables', 'Site name, domain, language, positioning, audience, tone, mustSay and mustNotSay.'],
     ['author.json', 'Author profile and story bank', 'Author identity, background, writing style, first-hand experience story material.'],
     ['knowledge.json', 'Category knowledge base', 'Glossary, authoritative facts, FAQ, compliance boundaries and buyer concerns.'],
@@ -977,10 +1053,25 @@ function isSetupFileComplete(filePath, file) {
       return text.length > 500 && !text.includes('[fill in');
     }
     const json = readJsonFile(filePath) || {};
+    const site = readJsonFile(join(path.dirname(filePath), 'site.json')) || {};
+    const isB2B = normalizeSiteType(site.siteType) === 'b2b';
     if (file === 'site.json') return Boolean(json.siteName && json.domain && json.language);
-    if (file === 'author.json') return Boolean(json.name && (json.background || (Array.isArray(json.storyBank) && json.storyBank.length)));
-    if (file === 'knowledge.json') return ['terminology','authorityFacts','buyerFAQ','buyerQuestions','objections','sellingPoints'].some(key => Array.isArray(json[key]) && json[key].length);
-    if (file === 'links.json') return ['pillarPages','categoryPages','blogPosts','productPages','trustPages'].some(key => Array.isArray(json[key]) && json[key].length);
+    if (file === 'author.json') {
+      if (isB2B) return Boolean((json.teamName || json.companyName) && json.background);
+      return Boolean(json.name && (json.background || (Array.isArray(json.storyBank) && json.storyBank.length)));
+    }
+    if (file === 'knowledge.json') {
+      const keys = isB2B
+        ? ['terminology','productLines','materials','specifications','manufacturingProcess','qualityControl','certifications','applications','industries','buyerQuestions','procurementFAQ','technicalFAQ','caseStudies','sellingPoints']
+        : ['terminology','authorityFacts','buyerFAQ','buyerQuestions','objections','sellingPoints'];
+      return keys.some(key => Array.isArray(json[key]) && json[key].length);
+    }
+    if (file === 'links.json') {
+      const keys = isB2B
+        ? ['solutionPages','productPages','industryPages','applicationPages','caseStudies','certificationPages','capabilityPages','contactPages','downloadPages','blogPosts']
+        : ['pillarPages','categoryPages','blogPosts','productPages','trustPages'];
+      return keys.some(key => Array.isArray(json[key]) && json[key].length);
+    }
     if (file === 'style-reference.json') {
       const direct = [json.styleBrief, json.styleReference, json.visualStyle, json.referenceHtml].some(value => typeof value === 'string' && value.trim().length > 80);
       const rules = Array.isArray(json.htmlRulesForGeneration) && json.htmlRulesForGeneration.some(value => String(value || '').trim().length > 20);
@@ -992,10 +1083,11 @@ function isSetupFileComplete(filePath, file) {
   return false;
 }
 
-async function classifySetupFileWithAI(file, apiConfig = {}) {
+async function classifySetupFileWithAI(file, apiConfig = {}, siteType = 'b2c') {
   const rawName = String(file.relativePath || file.name || '').replace(/\\/g, '/');
   const text = await importFileText(file);
   const sample = summarize(text, 12000);
+  const isB2B = normalizeSiteType(siteType) === 'b2b';
   const systemPrompt = `You classify and convert uploaded website onboarding files for a content-engine app.
 Return only valid JSON. No markdown.
 
@@ -1017,7 +1109,18 @@ If the file is irrelevant, duplicated, a logo/image/binary asset, or cannot supp
 For JSON targets, mappedContent must be an object matching the target's purpose.
 For project-instructions.md and keywords.csv, mappedContent must be a string.
 For docs/*, mappedContent may be a string or object.
-Do not invent website facts; extract and normalize only what is present.`;
+Do not invent website facts; extract and normalize only what is present.
+
+Current site type: ${isB2B ? 'b2b' : 'b2c'}.
+${isB2B ? `For B2B sites, use these mappings:
+- company profile / about company / factory profile -> site.json or author.json team profile
+- capabilities / manufacturing / OEM / ODM / production process -> knowledge.json
+- certifications / standards / compliance / test reports -> knowledge.json
+- case studies / project stories / customer stories -> knowledge.json
+- catalog / product list / spec sheets -> knowledge.json and links.json when URLs exist
+- industry solution / application pages / RFQ / contact pages -> links.json
+- keyword plans should preserve buyerrole, funnelstage, industry, application, productline, geotarget, ctatype, evidenceneeded, casetarget, solutiontarget, rfqtarget and compliancerisk when present.
+B2B author.json is a team/company credibility profile, not a personal author profile.` : ''}`;
   const userPrompt = `File path: ${rawName}
 
 Content sample:
@@ -1175,12 +1278,38 @@ function summarize(value, maxChars = 12000) {
 
 function normalizeSiteConfigForWrite(content = {}, siteId = '') {
   const out = content && typeof content === 'object' && !Array.isArray(content) ? { ...content } : {};
+  out.siteType = normalizeSiteType(out.siteType);
   const safeId = slugify(out.siteId || siteId || out.siteName || out.name || '');
   out.siteId = safeId || siteId;
   out.siteName = out.siteName || out.brandName || out.name || out.siteId || siteId;
   out.domain = out.domain || out.website || out.siteUrl || out.url || '';
   out.language = out.language || out.lang || out.locale || 'en';
   out.positioning = out.positioning || out.brandPositioning || out.description || '';
+  if (out.siteType === 'b2b') {
+    for (const key of ['targetMarkets','targetIndustries','buyerRoles','coreProducts','capabilities','certifications','qualityControl','mustSay','mustNotSay']) {
+      if (!Array.isArray(out[key])) out[key] = splitList(out[key] || '');
+    }
+    if (!out.businessModel) out.businessModel = 'B2B manufacturing / export / custom project inquiry';
+    if (!out.conversionGoal) out.conversionGoal = 'RFQ, project consultation, catalog download, drawing/spec submission';
+    if (!out.claimPolicy || typeof out.claimPolicy !== 'object' || Array.isArray(out.claimPolicy)) {
+      out.claimPolicy = {
+        noUnsupportedCertification: true,
+        noFakeFactoryClaims: true,
+        noExactLeadTimeUnlessProvided: true,
+        noGuaranteedPerformanceUnlessDocumented: true,
+      };
+    }
+    if (!out.writingStyle || typeof out.writingStyle !== 'object' || Array.isArray(out.writingStyle)) {
+      out.writingStyle = {
+        tone: out.tone || 'professional, specific, practical, procurement-focused',
+        sentenceStyle: 'clear explanations, short paragraphs, evidence-aware claims',
+        avoidStyle: ['consumer hype', 'cheap price language', 'unsupported best claims', 'vague factory slogans'],
+      };
+    }
+    if (!out.internalLinkPriority) {
+      out.internalLinkPriority = ['solutionPages', 'productPages', 'industryPages', 'caseStudies', 'certificationPages', 'contactPages', 'blogPosts'];
+    }
+  }
   if (typeof out.targetAudience === 'string') out.targetAudience = splitList(out.targetAudience);
   if (!Array.isArray(out.targetAudience)) out.targetAudience = splitList(out.audience || out.audiences || '');
   if (!Array.isArray(out.mustSay)) out.mustSay = splitList(out.mustSay || out.requiredClaims || '');
@@ -1418,10 +1547,14 @@ function readKeywordRows(csvText) {
 }
 
 function keywordRowsToCsv(rows) {
-  const columns = ['keyword','urlslug','priority','intent','articletype','targetwordcount','secondarykeywords','variants','direction','internallinkingurls','volume','kd','cannibalcheck','pillartarget','blogid'];
+  const columns = keywordCsvColumns();
   const lines = [columns.join(',')];
   for (const row of rows) lines.push(columns.map(col => csvCell(row[col] || '')).join(','));
   return lines.join('\n') + '\n';
+}
+
+function keywordCsvColumns() {
+  return ['keyword','urlslug','priority','intent','articletype','targetwordcount','secondarykeywords','variants','direction','internallinkingurls','volume','kd','cannibalcheck','pillartarget','buyerrole','funnelstage','industry','application','productline','geotarget','ctatype','evidenceneeded','casetarget','solutiontarget','rfqtarget','compliancerisk','blogid'];
 }
 
 function isBinaryImport(name) {
@@ -1436,7 +1569,7 @@ async function isKeywordWorkbook(baseName, buffer) {
 }
 
 function isKnowledgeWorkbookName(baseName) {
-  return /\.xlsx$/i.test(baseName) && /(?:d1a|d1b|认知|知识库|knowledge|category)/i.test(baseName);
+  return /\.xlsx$/i.test(baseName) && /(?:d1a|d1b|认知|知识库|knowledge|category|catalog|product|spec|specification|material|capabilit|manufactur|process|factory|certification|certificate|standard|compliance|case|project|industry|application|solution|oem|odm)/i.test(baseName);
 }
 
 async function workbookToKeywordCsv(buffer) {
@@ -1448,7 +1581,7 @@ async function workbookToKeywordCsv(buffer) {
   }
   if (!found.header) return workbookToCsv(buffer);
   const rows = [];
-  const columns = ['blogid','keyword','urlslug','priority','intent','articletype','secondarykeywords','direction','pillartarget','volume','kd','cannibalcheck'];
+  const columns = keywordCsvColumns();
   rows.push(columns.join(','));
   for (let r = found.headerRow + 1; r <= found.sheet.rowCount; r++) {
     const source = found.sheet.getRow(r);
@@ -1468,7 +1601,7 @@ async function workbookToKeywordCsv(buffer) {
 async function rawWorkbookToKeywordCsv(buffer) {
   const found = await findKeywordSheetRaw(buffer);
   if (!found.header) throw new Error('No keyword sheet header found in workbook');
-  const columns = ['blogid','keyword','urlslug','priority','intent','articletype','secondarykeywords','direction','pillartarget','volume','kd','cannibalcheck'];
+  const columns = keywordCsvColumns();
   const lines = [columns.join(',')];
   for (let r = found.headerRow + 1; r < found.rows.length; r++) {
     const source = found.rows[r] || [];
@@ -1528,6 +1661,15 @@ function normalizePriority(value) {
 
 function normalizeArticleType(value) {
   const text = String(value || '').toLowerCase();
+  if (/product.*category|category.*guide|catalog|product\s*guide/.test(text)) return 'product-category-guide';
+  if (/application|use\s*case|scenario/.test(text)) return 'application-guide';
+  if (/industry|solution/.test(text)) return 'industry-solution';
+  if (/manufactur|process|factory|production|oem|odm/.test(text)) return 'manufacturing-process';
+  if (/material|spec|parameter|tolerance/.test(text)) return 'materials-specs';
+  if (/standard|certification|certificate|compliance|test\s*report/.test(text)) return 'standards-certification';
+  if (/supplier|vendor|factory\s*comparison/.test(text)) return 'supplier-comparison';
+  if (/case\s*study|project\s*story|customer\s*story/.test(text)) return 'case-study';
+  if (/procurement|rfq|quote|moq|lead\s*time/.test(text)) return 'procurement-faq';
   if (/howto|how-to|教程|操作/.test(text)) return 'how-to';
   if (/comparison|对比/.test(text)) return 'comparison';
   if (/price|价格/.test(text)) return 'price-guide';
@@ -1544,9 +1686,10 @@ function slugFromUrlOrText(value) {
   return slugify(cleaned || text);
 }
 
-async function workbookToKnowledgeJson(buffer, baseName = '') {
+async function workbookToKnowledgeJson(buffer, baseName = '', siteType = 'b2c') {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
+  if (normalizeSiteType(siteType) === 'b2b') return workbookToB2BKnowledgeJson(workbook, baseName);
   const out = {
     terminology: [],
     authorityFacts: [],
@@ -1570,6 +1713,20 @@ async function workbookToKnowledgeJson(buffer, baseName = '') {
   return out;
 }
 
+function workbookToB2BKnowledgeJson(workbook, baseName = '') {
+  const out = makeDefaultB2BKnowledge();
+  out.rawNotes = [];
+  for (const sheet of workbook.worksheets) {
+    const sheetName = sheet.name || '';
+    const markdown = sheetToMarkdown(sheet, 100);
+    if (!markdown.trim()) continue;
+    const source = `${baseName}:${sheetName}`;
+    out.rawNotes.push({ source, content: markdown });
+    appendB2BKnowledgeFromText(out, markdown, source);
+  }
+  return out;
+}
+
 function sheetRowsFromHeader(sheet, expectedHeaders = []) {
   const rows = [];
   let headerRow = 0;
@@ -1589,6 +1746,88 @@ function sheetRowsFromHeader(sheet, expectedHeaders = []) {
     if (values.some(Boolean)) rows.push(values);
   }
   return rows;
+}
+
+function isB2BKnowledgeTextName(baseName, text = '') {
+  if (!/\.(md|txt|docx)$/i.test(baseName)) return false;
+  if (/links?|url|sitemap/i.test(baseName)) return false;
+  if (/company[-_ ]?profile|about[-_ ]?company|team[-_ ]?profile|factory[-_ ]?profile|brand[-_ ]?profile/i.test(baseName)) return false;
+  const haystack = `${baseName}\n${String(text || '').slice(0, 4000)}`.toLowerCase();
+  return /product|catalog|spec|specification|material|capabilit|manufactur|process|factory|quality|qc|inspection|certification|certificate|standard|compliance|case study|customer case|project|industry|application|solution|procurement|moq|lead time|rfq|oem|odm/.test(haystack);
+}
+
+function isB2BTeamTextName(baseName, text = '') {
+  if (!/\.(md|txt|docx)$/i.test(baseName)) return false;
+  const haystack = `${baseName}\n${String(text || '').slice(0, 3000)}`.toLowerCase();
+  return /company profile|about company|factory profile|team profile|engineering team|quality team|export experience|manufacturer profile|production team/.test(haystack);
+}
+
+function isB2BSiteTextName(baseName, text = '') {
+  if (!/\.(md|txt|docx)$/i.test(baseName)) return false;
+  const haystack = `${baseName}\n${String(text || '').slice(0, 3000)}`.toLowerCase();
+  return /brand|website|positioning|target market|buyer role|conversion goal|business model|company overview|site variables/.test(haystack);
+}
+
+function isB2BLinksTextName(baseName, text = '') {
+  if (!/\.(md|txt)$/i.test(baseName)) return false;
+  const haystack = `${baseName}\n${String(text || '').slice(0, 3000)}`.toLowerCase();
+  return /solution page|product page|industry page|application page|case stud|certification page|rfq|quote|contact page|download|catalog/.test(haystack);
+}
+
+function textToB2BKnowledgeJson(text, source = '') {
+  const out = makeDefaultB2BKnowledge();
+  out.rawNotes = [{ source, content: summarize(text, 6000) }];
+  appendB2BKnowledgeFromText(out, text, source);
+  return out;
+}
+
+function appendB2BKnowledgeFromText(out, text, source = '') {
+  const sections = splitTextSections(text);
+  if (!sections.length) sections.push({ title: source || 'Notes', body: String(text || '') });
+  for (const section of sections) {
+    const title = section.title || source || 'Notes';
+    const body = section.body || '';
+    const item = { source, title: title.slice(0, 140), detail: summarize(body, 1800) };
+    if (!item.detail) continue;
+    const key = `${title}\n${body}`.toLowerCase();
+    if (/material|substrate|alloy|fabric|steel|aluminum|plastic|wood/.test(key)) out.materials.push(item);
+    else if (/spec|parameter|dimension|size|tolerance|performance|capacity/.test(key)) out.specifications.push(item);
+    else if (/process|manufactur|production|factory|equipment|oem|odm/.test(key)) out.manufacturingProcess.push(item);
+    else if (/quality|qc|inspection|test|defect|acceptance/.test(key)) out.qualityControl.push(item);
+    else if (/certification|certificate|standard|compliance|iso|ce|fda|rohs|reach|astm/.test(key)) out.certifications.push(item);
+    else if (/application|use case|scenario|installation/.test(key)) out.applications.push(item);
+    else if (/industry|market|vertical|sector/.test(key)) out.industries.push(item);
+    else if (/case|project|customer|client/.test(key)) out.caseStudies.push(item);
+    else if (/faq|question|buyer|procurement|moq|lead time|sample|shipping|payment|rfq|quote/.test(key)) out.procurementFAQ.push({ source, question: title.slice(0, 160), answer: summarize(body, 1800) });
+    else if (/technical|engineering|drawing|cad|installation|maintenance/.test(key)) out.technicalFAQ.push({ source, question: title.slice(0, 160), answer: summarize(body, 1800) });
+    else if (/objection|concern|risk|problem/.test(key)) out.objections.push(item);
+    else if (/selling point|advantage|benefit|why choose|strength/.test(key)) out.sellingPoints.push(item);
+    else if (/compare|comparison|versus| vs /.test(key)) out.comparisonPoints.push(item);
+    else out.productLines.push(item);
+  }
+}
+
+function splitTextSections(text) {
+  const sections = [];
+  let current = null;
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    const heading = line.match(/^(?:#{1,4}\s+|\d+[\.)]\s+|[-*]\s+)?(.{3,120})(?:[:：])?\s*$/);
+    const looksHeading = heading && line.length <= 120 && (/^#{1,4}\s+/.test(line) || /[:：]$/.test(line) || /^[A-Z][A-Za-z0-9 /&()+-]{3,80}$/.test(line));
+    if (looksHeading) {
+      if (current && current.body.trim()) sections.push(current);
+      current = { title: heading[1].replace(/^#+\s*/, '').trim(), body: '' };
+    } else if (current) {
+      current.body += raw + '\n';
+    }
+  }
+  if (current && current.body.trim()) sections.push(current);
+  if (!sections.length && String(text || '').trim()) sections.push({ title: 'Imported B2B notes', body: String(text || '') });
+  return sections;
+}
+
+function hasAnyArrayContent(obj) {
+  return Object.values(obj || {}).some(value => Array.isArray(value) && value.length);
 }
 
 async function workbookToMarkdown(buffer) {
@@ -1670,16 +1909,82 @@ function docxTextToSiteJson(text) {
   });
 }
 
-function markdownToLinksJson(text) {
-  const out = { pillarPages: [], blogPosts: [], productPages: [], categoryPages: [], trustPages: [] };
+function docxTextToB2BSiteJson(text, currentSite = {}) {
+  const siteName = firstMatch(text, /(?:company|brand|site|website)\s*(?:name)?\s*[:：]\s*([^\n]+)/i) || currentSite.siteName || '';
+  const domain = firstMatch(text, /(?:domain|website|url)\s*[:：]\s*([^\s\n]+)/i) || currentSite.domain || '';
+  const positioning = firstMatch(text, /(?:positioning|company overview|about company|what we do)\s*[:：]\s*([\s\S]*?)(?=\n\s*(?:target|market|products|capabilities|certifications|$))/i) || '';
+  return normalizeSiteConfigForWrite({
+    ...currentSite,
+    siteType: 'b2b',
+    siteName,
+    domain: domain ? (domain.startsWith('http') ? domain : `https://${domain}`) : '',
+    language: currentSite.language || 'en',
+    businessModel: firstMatch(text, /(?:business model)\s*[:：]\s*([^\n]+)/i) || currentSite.businessModel || 'B2B manufacturing / export / custom project inquiry',
+    positioning: positioning.trim() || currentSite.positioning || summarize(text, 900),
+    targetMarkets: splitList(firstMatch(text, /(?:target markets?|export markets?|regions?)\s*[:：]\s*([^\n]+)/i) || currentSite.targetMarkets || ''),
+    targetIndustries: splitList(firstMatch(text, /(?:target industries?|industries served|verticals?)\s*[:：]\s*([^\n]+)/i) || currentSite.targetIndustries || ''),
+    buyerRoles: splitList(firstMatch(text, /(?:buyer roles?|target buyers?|customers?)\s*[:：]\s*([^\n]+)/i) || currentSite.buyerRoles || ''),
+    conversionGoal: firstMatch(text, /(?:conversion goal|cta|inquiry goal)\s*[:：]\s*([^\n]+)/i) || currentSite.conversionGoal || 'RFQ, project consultation, catalog download, drawing/spec submission',
+    coreProducts: splitList(firstMatch(text, /(?:core products?|main products?|product lines?)\s*[:：]\s*([^\n]+)/i) || currentSite.coreProducts || ''),
+    capabilities: splitList(firstMatch(text, /(?:capabilities|manufacturing capabilities|services)\s*[:：]\s*([^\n]+)/i) || currentSite.capabilities || ''),
+    certifications: splitList(firstMatch(text, /(?:certifications?|standards?)\s*[:：]\s*([^\n]+)/i) || currentSite.certifications || ''),
+    qualityControl: splitList(firstMatch(text, /(?:quality control|qc|inspection)\s*[:：]\s*([^\n]+)/i) || currentSite.qualityControl || ''),
+    leadTimePolicy: firstMatch(text, /(?:lead time policy|lead time)\s*[:：]\s*([^\n]+)/i) || currentSite.leadTimePolicy || '',
+    moqPolicy: firstMatch(text, /(?:moq policy|moq)\s*[:：]\s*([^\n]+)/i) || currentSite.moqPolicy || '',
+  });
+}
+
+function docxTextToTeamProfileJson(text, site = {}) {
+  const sections = splitTextSections(text);
+  const caseStoryBank = sections
+    .filter(section => /case|project|customer|client|story/i.test(section.title + '\n' + section.body))
+    .slice(0, 60)
+    .map(section => ({ title: section.title.slice(0, 120), detail: summarize(section.body, 1400) }));
+  const engineeringExperience = sections
+    .filter(section => /engineering|technical|drawing|design|spec|installation|support/i.test(section.title + '\n' + section.body))
+    .slice(0, 40)
+    .map(section => ({ title: section.title.slice(0, 120), detail: summarize(section.body, 1200) }));
+  const qualityControlExperience = sections
+    .filter(section => /quality|qc|inspection|test|defect|standard/i.test(section.title + '\n' + section.body))
+    .slice(0, 40)
+    .map(section => ({ title: section.title.slice(0, 120), detail: summarize(section.body, 1200) }));
+  const exportExperience = sections
+    .filter(section => /export|shipping|market|country|region|logistics|customs/i.test(section.title + '\n' + section.body))
+    .slice(0, 40)
+    .map(section => ({ title: section.title.slice(0, 120), detail: summarize(section.body, 1200) }));
+  return {
+    profileType: 'team',
+    companyName: site.siteName || firstMatch(text, /(?:company|brand)\s*(?:name)?\s*[:：]\s*([^\n]+)/i) || '',
+    teamName: firstMatch(text, /(?:team name|department)\s*[:：]\s*([^\n]+)/i) || 'Product & Project Support Team',
+    teamRole: firstMatch(text, /(?:team role|role)\s*[:：]\s*([^\n]+)/i) || 'Manufacturer / exporter / engineering support team',
+    background: summarize(text, 5000),
+    factoryStory: firstMatch(text, /(?:factory story|factory background|manufacturing background)\s*[:：]\s*([\s\S]*?)(?=\n\s*(?:engineering|quality|export|case|$))/i) || '',
+    engineeringExperience,
+    qualityControlExperience,
+    exportExperience,
+    caseStoryBank,
+    writingNotes: 'Write as a practical B2B technical content team. Use documented company/product facts and do not invent certifications, lead time, MOQ, client names, factory scale, or test data.',
+  };
+}
+
+function markdownToLinksJson(text, siteType = 'b2c') {
+  const out = normalizeSiteType(siteType) === 'b2b' ? makeDefaultB2BLinks() : { pillarPages: [], blogPosts: [], productPages: [], categoryPages: [], trustPages: [] };
   for (const rawLine of String(text || '').split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || line.startsWith('#')) continue;
     const parts = line.split(/\t|\s{2,}|\s*\|\s*/).map(p => p.trim()).filter(Boolean);
     if (parts.length < 3 || !/^https?:|^\//.test(parts[1] || '')) continue;
-    const item = { anchorText: parts[2], url: parts[1], topic: parts[0], keywords: [], status: parts[3] || '' };
+    const item = { anchor: parts[2], anchorText: parts[2], url: parts[1], topic: parts[0], keywords: splitList(parts[4] || ''), status: parts[3] || '' };
     const type = parts[0].toLowerCase();
-    if (type.includes('category')) out.categoryPages.push(item);
+    if (type.includes('solution')) out.solutionPages?.push(item) || out.pillarPages.push(item);
+    else if (type.includes('industry')) out.industryPages?.push(item) || out.categoryPages.push(item);
+    else if (type.includes('application')) out.applicationPages?.push(item) || out.categoryPages.push(item);
+    else if (type.includes('case')) out.caseStudies?.push(item) || out.blogPosts.push(item);
+    else if (type.includes('certification') || type.includes('certificate') || type.includes('standard')) out.certificationPages?.push(item) || out.trustPages.push(item);
+    else if (type.includes('capability') || type.includes('factory') || type.includes('manufactur')) out.capabilityPages?.push(item) || out.trustPages.push(item);
+    else if (type.includes('contact') || type.includes('rfq') || type.includes('quote')) out.contactPages?.push(item) || out.trustPages.push(item);
+    else if (type.includes('download') || type.includes('catalog')) out.downloadPages?.push(item) || out.trustPages.push(item);
+    else if (type.includes('category')) out.categoryPages.push(item);
     else if (type.includes('product') || type.includes('shop')) out.productPages.push(item);
     else if (type.includes('blog')) out.blogPosts.push(item);
     else if (type.includes('guide') || type.includes('pillar')) out.pillarPages.push(item);
@@ -1892,6 +2197,22 @@ function getTemplateSpec(file) {
   return spec;
 }
 
+function normalizeTemplateScope(value) {
+  const raw = String(value || '').toLowerCase();
+  if (raw === 'b2b') return 'b2b';
+  if (raw === 'b2c') return 'b2c';
+  if (raw === 'common' || raw === 'global') return 'common';
+  return 'common';
+}
+
+function getTemplatePath(spec, scopeValue) {
+  const scope = normalizeTemplateScope(scopeValue);
+  const dirPath = scope === 'common' ? join(TEMPLATES_DIR, 'common') : join(TEMPLATES_DIR, scope);
+  const filePath = join(dirPath, spec.filename);
+  const fallbackPath = scope === 'b2c' ? join(TEMPLATES_DIR, spec.filename) : '';
+  return { scope, dirPath, filePath, fallbackPath };
+}
+
 function pickApiConfig(input = {}) {
   const out = {};
   for (const key of ['apiKey', 'endpoint', 'model', 'maxTokens', 'timeoutMs']) {
@@ -1923,11 +2244,19 @@ function splitList(value) {
   return String(value || '').split(/[,;\n]/).map(v => v.trim()).filter(Boolean);
 }
 
-function defaultKeywordsCsv() {
+function normalizeSiteType(value) {
+  return String(value || '').toLowerCase() === 'b2b' ? 'b2b' : 'b2c';
+}
+
+function defaultKeywordsCsv(siteType = 'b2c') {
+  if (normalizeSiteType(siteType) === 'b2b') {
+    return 'keyword,urlslug,priority,intent,articletype,targetwordcount,secondarykeywords,variants,direction,internallinkingurls,volume,kd,buyerrole,funnelstage,industry,application,productline,geotarget,ctatype,evidenceneeded,casetarget,solutiontarget,rfqtarget,compliancerisk,blogid,status,qaScore,error,wordCount\n';
+  }
   return 'keyword,urlslug,priority,intent,articletype,targetwordcount,secondarykeywords,variants,direction,internallinkingurls,volume,kd,cannibalcheck,pillartarget,blogid\n';
 }
 
-function defaultProjectInstructions(input = {}) {
+function defaultProjectInstructions(input = {}, siteType = 'b2c') {
+  if (normalizeSiteType(siteType) === 'b2b') return defaultB2BProjectInstructions(input);
   const siteName = input.siteName || input.siteId || 'this site';
   const language = input.language || 'en';
   const positioning = input.positioning || '';
@@ -1942,9 +2271,39 @@ function defaultProjectInstructions(input = {}) {
   ].join('\n');
 }
 
-function makeDefaultSite(input, siteId) {
+function defaultB2BProjectInstructions(input = {}) {
+  const siteName = input.siteName || input.siteId || 'this company';
+  const language = input.language || 'en';
+  const positioning = input.positioning || '';
+  return [
+    `# B2B Project Instructions - ${siteName}`,
+    '',
+    `Write buyer-facing B2B content in ${language}. Internal configuration notes may be written in Chinese or another working language.`,
+    positioning ? `Company positioning: ${positioning}` : 'Company positioning: [fill in what the company supplies, who it serves, and what conversion action matters].',
+    '',
+    'Role: write as the company technical editorial and product support team, not as a personal influencer.',
+    'Audience: procurement managers, engineers, contractors, distributors, project owners, and business buyers.',
+    'Source of truth: site.json, author.json team profile, knowledge.json product and industry data, links.json, style-reference.json, and this file.',
+    '',
+    'Evidence rules:',
+    '- Do not invent certifications, standards, test data, factory size, equipment, production capacity, export markets, customer names, case results, lead time, MOQ, pricing, or performance guarantees.',
+    '- If a certification, case, material spec, lead time, MOQ, or performance claim is not present in the site data, phrase it as a buyer question or a verification checklist item instead of a claim.',
+    '- Prefer specific product parameters, QC steps, application fit, buyer role concerns, RFQ next steps, drawing/spec submission, catalog download, or technical consultation.',
+    '',
+    'Output expectation: publish-ready English article HTML with B2B procurement CTA and a company/team credibility block.',
+    '',
+  ].join('\n');
+}
+
+function makeDefaultSite(input, siteId, siteType = 'b2c') {
+  if (normalizeSiteType(siteType) === 'b2b') return makeDefaultB2BSite(input, siteId);
+  return makeDefaultB2CSite(input, siteId);
+}
+
+function makeDefaultB2CSite(input, siteId) {
   return {
     siteId,
+    siteType: 'b2c',
     siteName: input.siteName || siteId,
     domain: input.domain || '',
     language: input.language || 'en',
@@ -1971,7 +2330,56 @@ function makeDefaultSite(input, siteId) {
   };
 }
 
-function makeDefaultKnowledge() {
+function makeDefaultB2BSite(input, siteId) {
+  return {
+    siteId,
+    siteType: 'b2b',
+    siteName: input.siteName || siteId,
+    domain: input.domain || '',
+    language: input.language || 'en',
+    businessModel: input.businessModel || 'B2B manufacturing / export / custom project inquiry',
+    positioning: input.positioning || '',
+    targetMarkets: splitList(input.targetMarkets || ''),
+    targetIndustries: splitList(input.targetIndustries || input.targetAudience || ''),
+    buyerRoles: splitList(input.buyerRoles || ''),
+    conversionGoal: input.conversionGoal || 'RFQ, project consultation, catalog download, drawing/spec submission',
+    coreProducts: splitList(input.coreProducts || ''),
+    capabilities: splitList(input.capabilities || ''),
+    certifications: splitList(input.certifications || ''),
+    qualityControl: splitList(input.qualityControl || ''),
+    leadTimePolicy: input.leadTimePolicy || '',
+    moqPolicy: input.moqPolicy || '',
+    mustSay: splitList(input.mustSay || ''),
+    mustNotSay: splitList(input.mustNotSay || ''),
+    claimPolicy: {
+      noUnsupportedCertification: true,
+      noFakeFactoryClaims: true,
+      noExactLeadTimeUnlessProvided: true,
+      noGuaranteedPerformanceUnlessDocumented: true,
+    },
+    writingStyle: {
+      tone: input.tone || 'professional, specific, practical, procurement-focused',
+      sentenceStyle: 'clear explanations, short paragraphs, evidence-aware claims',
+      avoidStyle: ['consumer hype', 'cheap price language', 'unsupported best claims', 'vague factory slogans'],
+    },
+    internalLinkPriority: ['solutionPages', 'productPages', 'industryPages', 'caseStudies', 'certificationPages', 'contactPages', 'blogPosts'],
+    wordpress: {
+      endpoint: input.domain || '',
+      username: '',
+      appPassword: '',
+      defaultStatus: 'draft',
+      categories: [],
+      tags: [],
+    },
+  };
+}
+
+function makeDefaultKnowledge(siteType = 'b2c') {
+  if (normalizeSiteType(siteType) === 'b2b') return makeDefaultB2BKnowledge();
+  return makeDefaultB2CKnowledge();
+}
+
+function makeDefaultB2CKnowledge() {
   return {
     terminology: [],
     authorityFacts: [],
@@ -1985,7 +2393,32 @@ function makeDefaultKnowledge() {
   };
 }
 
-function makeDefaultAuthor(input) {
+function makeDefaultB2BKnowledge() {
+  return {
+    terminology: [],
+    productLines: [],
+    materials: [],
+    specifications: [],
+    manufacturingProcess: [],
+    qualityControl: [],
+    certifications: [],
+    applications: [],
+    industries: [],
+    buyerQuestions: [],
+    procurementFAQ: [],
+    technicalFAQ: [],
+    objections: [],
+    sellingPoints: [],
+    caseStudies: [],
+    comparisonPoints: [],
+    complianceBoundaries: [],
+    unsupportedClaims: [],
+    requiredClaims: [],
+  };
+}
+
+function makeDefaultAuthor(input, siteType = 'b2c') {
+  if (normalizeSiteType(siteType) === 'b2b') return makeDefaultTeamProfile(input);
   return {
     name: input.authorName || '',
     title: input.authorTitle || '',
@@ -1995,13 +2428,48 @@ function makeDefaultAuthor(input) {
   };
 }
 
-function makeDefaultLinks() {
+function makeDefaultTeamProfile(input = {}) {
+  return {
+    profileType: 'team',
+    companyName: input.siteName || input.companyName || '',
+    teamName: input.teamName || 'Product & Project Support Team',
+    teamRole: input.authorTitle || input.teamRole || 'Manufacturer / exporter / engineering support team',
+    background: '',
+    factoryStory: '',
+    engineeringExperience: [],
+    qualityControlExperience: [],
+    exportExperience: [],
+    caseStoryBank: [],
+    writingNotes: 'Write as a practical B2B technical content team, not as a personal influencer.',
+  };
+}
+
+function makeDefaultLinks(siteType = 'b2c') {
+  if (normalizeSiteType(siteType) === 'b2b') return makeDefaultB2BLinks();
   return {
     pillarPages: [],
     categoryPages: [],
     blogPosts: [],
     productPages: [],
     trustPages: [],
+  };
+}
+
+function makeDefaultB2BLinks() {
+  return {
+    pillarPages: [],
+    categoryPages: [],
+    blogPosts: [],
+    productPages: [],
+    trustPages: [],
+    solutionPages: [],
+    industryPages: [],
+    applicationPages: [],
+    caseStudies: [],
+    certificationPages: [],
+    capabilityPages: [],
+    contactPages: [],
+    downloadPages: [],
   };
 }
 
@@ -2271,6 +2739,7 @@ function normalizeOutline(value, row, typeKey, typeConfig) {
       targetWordCount: outline.targetWordCount || row.targetwordcount || typeConfig?.wordRange?.join('-') || '',
       readerPromise: outline.readerPromise || '',
       sections: outline.sections,
+      keywordCoveragePlan: normalizeKeywordCoveragePlan(outline.keywordCoveragePlan, row),
       faq: outline.faq || [],
       cta: outline.cta || '',
       qaRisks: outline.qaRisks || [],
@@ -2288,6 +2757,7 @@ function normalizeOutline(value, row, typeKey, typeConfig) {
     targetWordCount: row.targetwordcount || typeConfig?.wordRange?.join('-') || '',
     readerPromise: outline.metaDescription || `Help the reader understand ${row.keyword} and choose the right next step.`,
     sections: fallbackOutlineSections(row, typeKey),
+    keywordCoveragePlan: normalizeKeywordCoveragePlan(outline.keywordCoveragePlan, row),
     faq: [
       { question: `What should I know before choosing ${row.keyword}?`, answerIntent: 'Answer with the site knowledge base, buyer concerns, and practical next-step guidance.' },
       { question: `How should I evaluate ${row.keyword} before making a decision?`, answerIntent: 'Use verified facts, brand rules, and relevant product/category context.' },
@@ -2301,6 +2771,61 @@ function normalizeOutline(value, row, typeKey, typeConfig) {
     rawModelOutline: outline,
     normalizedFromMetadata: true,
   };
+}
+
+function normalizeKeywordCoveragePlan(plan = {}, row = {}) {
+  const primary = splitKeywordTerms(row.keyword).map(term => ({
+    term,
+    plannedPlacement: 'H1 and first 100 words',
+    sectionHeading: '',
+    required: true,
+  }));
+  const secondary = splitKeywordTerms(row.secondarykeywords || row.secondary).map(term => ({
+    term,
+    plannedPlacement: 'H2/H3 or body copy',
+    sectionHeading: '',
+    required: true,
+  }));
+  const variants = splitKeywordTerms(row.variants || row.longtail).map(term => ({
+    term,
+    plannedPlacement: 'Body copy or FAQ where natural',
+    sectionHeading: '',
+    required: false,
+  }));
+  const out = {
+    primary: normalizeCoverageRows(plan.primary, primary),
+    secondary: normalizeCoverageRows(plan.secondary, secondary),
+    variants: normalizeCoverageRows(plan.variants, variants),
+  };
+  return out;
+}
+
+function normalizeCoverageRows(value, fallback = []) {
+  const rows = Array.isArray(value) ? value : [];
+  const normalized = rows.map(item => {
+    if (typeof item === 'string') return { term: item, plannedPlacement: '', sectionHeading: '', required: true };
+    return {
+      term: String(item?.term || item?.keyword || '').trim(),
+      plannedPlacement: String(item?.plannedPlacement || item?.placement || '').trim(),
+      sectionHeading: String(item?.sectionHeading || item?.section || '').trim(),
+      required: item?.required === false ? false : true,
+    };
+  }).filter(item => item.term);
+  const seen = new Set(normalized.map(item => item.term.toLowerCase()));
+  for (const item of fallback) {
+    if (!item.term || seen.has(item.term.toLowerCase())) continue;
+    normalized.push(item);
+  }
+  return normalized;
+}
+
+function splitKeywordTerms(value = '') {
+  if (Array.isArray(value)) return value.map(String).map(v => v.trim()).filter(Boolean);
+  return String(value || '')
+    .split(/[,;，；\n|]/)
+    .map(v => v.trim())
+    .filter(Boolean)
+    .filter(v => !/^\(none\)$/i.test(v));
 }
 
 function fallbackOutlineSections(row, typeKey) {
@@ -2381,16 +2906,23 @@ async function buildPublishPack(siteId, slug) {
   const meta = await readPublishMeta(siteDir, slug);
   const store = await getStore(siteId);
   const row = store.getOne(slug) || {};
+  const ctx = await loadSiteContext(siteId);
+  const isB2B = normalizeSiteType(ctx.site?.siteType) === 'b2b';
   const focusKeyword = meta.focusKeyword || row.keyword || slug;
-  const checklist = buildPublishChecklist(html, focusKeyword, meta.metaDescription, meta.schema);
+  const publishCtas = isB2B ? buildB2BPublishCtas(ctx, row) : [];
+  const schema = isB2B ? enhanceB2BSchema(meta.schema, ctx, row, html, publishCtas) : meta.schema;
+  const b2bPublish = isB2B ? buildB2BPublishMetadata(ctx, row, publishCtas) : null;
+  const checklist = buildPublishChecklist(html, focusKeyword, meta.metaDescription, schema, { isB2B, publishCtas, row, ctx });
 
   return {
     html,
     seoTitles: meta.seoTitles,
     metaDescription: meta.metaDescription,
     altTexts: meta.altTexts,
-    schema: meta.schema,
+    schema,
     focusKeyword,
+    publishCtas,
+    b2bPublish,
     publishChecklist: checklist,
   };
 }
@@ -2937,21 +3469,166 @@ function textCell(value) {
   return String(value).trim();
 }
 
-function buildPublishChecklist(html, focusKeyword, metaDescription, schema) {
+function buildPublishChecklist(html, focusKeyword, metaDescription, schema, opts = {}) {
   const h1 = stripTags((html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || [])[1] || '');
   const h1Done = focusKeyword ? h1.toLowerCase().includes(String(focusKeyword).toLowerCase()) : Boolean(h1);
   const linkCount = (html.match(/<a\b[^>]*href=/gi) || []).length;
-  const authorDone = /author|byline|about this article|written by/i.test(html);
+  const authorDone = opts.isB2B
+    ? /company-credibility|about this guide|technical review|product support team|prepared by/i.test(html)
+    : /author|byline|about this article|written by/i.test(html);
   const metaDone = Boolean(metaDescription) && metaDescription.length <= 155;
   const schemaDone = Boolean(schema && Object.keys(schema).length);
+  const ctaDone = opts.isB2B ? hasB2BCTA(html) || Boolean(opts.publishCtas?.length) : true;
+  const schemaTypes = flattenSchemaTypes(schema);
 
-  return [
+  const items = [
     { item: 'H1 includes the focus keyword', done: h1Done },
     { item: 'Internal link count is 2-5', done: linkCount >= 2 && linkCount <= 5 },
-    { item: 'Author/byline module exists', done: authorDone },
+    { item: opts.isB2B ? 'Company/team credibility block exists' : 'Author/byline module exists', done: authorDone },
     { item: 'Meta Description is 155 characters or less', done: metaDone },
     { item: 'Schema JSON-LD is prepared', done: schemaDone },
   ];
+  if (opts.isB2B) {
+    items.push(
+      { item: 'Procurement-oriented CTA is prepared', done: ctaDone },
+      { item: 'Organization schema is available', done: schemaTypes.includes('Organization') },
+      { item: 'Breadcrumb schema is available', done: schemaTypes.includes('BreadcrumbList') },
+      { item: 'Buyer role / funnel / CTA fields are captured', done: Boolean(opts.row?.buyerrole || opts.row?.funnelstage || opts.row?.ctatype) },
+    );
+  }
+  return items;
+}
+
+function buildB2BPublishCtas(ctx, row = {}) {
+  const site = ctx.site || {};
+  const links = ctx.links || {};
+  const preferred = String(row.ctatype || site.conversionGoal || '').toLowerCase();
+  const candidates = [];
+  const add = (type, label, url, note) => {
+    if (!url) return;
+    candidates.push({ type, label, url, note });
+  };
+  const contact = firstLinkUrl(links.contactPages) || firstLinkUrl(links.trustPages) || '/contact/';
+  const download = firstLinkUrl(links.downloadPages);
+  const solution = firstLinkUrl(links.solutionPages) || row.solutiontarget || '';
+  add('request-quote', 'Request a quote', row.rfqtarget || contact, 'Use when the reader is ready to send project requirements or ask for pricing.');
+  add('send-drawing', 'Send drawings or specifications', row.rfqtarget || contact, 'Use for custom, OEM, ODM, engineering, or size-specific topics.');
+  add('download-catalog', 'Download catalog', download, 'Use when the article explains product range, specs, or selection criteria.');
+  add('technical-consultation', 'Talk to a technical specialist', contact, 'Use when the topic involves installation, compliance, material choice, or procurement risk.');
+  add('view-solution', 'View related solution', solution, 'Use when a solution page should be the next click.');
+  if (/catalog|download/.test(preferred)) return candidates.filter(c => c.type === 'download-catalog').concat(candidates.filter(c => c.type !== 'download-catalog')).slice(0, 4);
+  if (/drawing|spec/.test(preferred)) return candidates.filter(c => c.type === 'send-drawing').concat(candidates.filter(c => c.type !== 'send-drawing')).slice(0, 4);
+  if (/consult|engineer|technical/.test(preferred)) return candidates.filter(c => c.type === 'technical-consultation').concat(candidates.filter(c => c.type !== 'technical-consultation')).slice(0, 4);
+  return candidates.slice(0, 4);
+}
+
+function buildB2BPublishMetadata(ctx, row = {}, ctas = []) {
+  return {
+    buyerRole: row.buyerrole || '',
+    funnelStage: row.funnelstage || '',
+    industry: row.industry || '',
+    application: row.application || '',
+    productLine: row.productline || '',
+    geoTarget: row.geotarget || '',
+    ctaType: row.ctatype || '',
+    evidenceNeeded: row.evidenceneeded || '',
+    caseTarget: row.casetarget || '',
+    solutionTarget: row.solutiontarget || '',
+    rfqTarget: row.rfqtarget || '',
+    complianceRisk: row.compliancerisk || '',
+    recommendedCtas: ctas,
+    publishNotes: [
+      'Review unsupported certification, lead time, MOQ, capacity, and case-study claims before publishing.',
+      'Use RFQ, drawing/spec submission, catalog download, or technical consultation as the primary conversion path.',
+    ],
+  };
+}
+
+function enhanceB2BSchema(schema = {}, ctx = {}, row = {}, html = '', ctas = []) {
+  const site = ctx.site || {};
+  const domain = String(site.domain || '').replace(/\/+$/, '');
+  const articleSchema = schema && Object.keys(schema).length ? schema : {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+  };
+  if (!articleSchema.author) {
+    articleSchema.author = { '@type': 'Organization', name: site.siteName || site.siteId || 'Company' };
+  }
+  if (!articleSchema.publisher) {
+    articleSchema.publisher = { '@type': 'Organization', name: site.siteName || site.siteId || 'Company', url: domain || undefined };
+  }
+  const graph = Array.isArray(articleSchema['@graph']) ? [...articleSchema['@graph']] : [articleSchema];
+  graph.push({
+    '@type': 'Organization',
+    name: site.siteName || site.siteId || 'Company',
+    url: domain || undefined,
+    areaServed: site.targetMarkets || undefined,
+    knowsAbout: [...(site.coreProducts || []), ...(site.capabilities || [])].filter(Boolean),
+  });
+  graph.push({
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: domain || '/' },
+      { '@type': 'ListItem', position: 2, name: 'Blog', item: domain ? `${domain}/blog/` : '/blog/' },
+      { '@type': 'ListItem', position: 3, name: row.keyword || row.urlslug || 'Article', item: domain ? `${domain}/blog/${row.urlslug || ''}/` : `/blog/${row.urlslug || ''}/` },
+    ],
+  });
+  if (hasVisibleProductInfo(row, html, site)) {
+    graph.push({
+      '@type': 'Product',
+      name: row.productline || row.keyword || site.coreProducts?.[0] || '',
+      category: row.industry || row.application || undefined,
+      brand: { '@type': 'Brand', name: site.siteName || site.siteId || 'Company' },
+      description: row.direction || row.evidenceneeded || undefined,
+    });
+  }
+  if (ctas.length) {
+    graph.push({
+      '@type': 'WebPage',
+      potentialAction: ctas.map(cta => ({
+        '@type': 'Action',
+        name: cta.label,
+        target: cta.url,
+      })),
+    });
+  }
+  return { '@context': 'https://schema.org', '@graph': dedupeSchemaGraph(graph) };
+}
+
+function hasVisibleProductInfo(row = {}, html = '', site = {}) {
+  return Boolean(row.productline || row.productLine || site.coreProducts?.length || /<table|spec|material|product|model|capacity|dimension/i.test(html));
+}
+
+function hasB2BCTA(html = '') {
+  return /request (a )?quote|rfq|send (your )?(drawing|spec)|download (the )?catalog|talk to (an? )?(engineer|specialist)|technical consultation|contact (our )?(team|engineer|sales)/i.test(stripTags(html));
+}
+
+function firstLinkUrl(list = []) {
+  const item = Array.isArray(list) ? list.find(link => link?.url) : null;
+  return item?.url || '';
+}
+
+function flattenSchemaTypes(schema = {}) {
+  const out = [];
+  const visit = value => {
+    if (!value || typeof value !== 'object') return;
+    if (value['@type']) out.push(String(value['@type']));
+    if (Array.isArray(value['@graph'])) value['@graph'].forEach(visit);
+  };
+  visit(schema);
+  return out;
+}
+
+function dedupeSchemaGraph(items = []) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const key = `${item['@type'] || ''}:${item.name || item.headline || item.url || JSON.stringify(item).slice(0, 80)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
 }
 
 function stripTags(value) {

@@ -1,0 +1,27 @@
+{
+  "name": "Mara Chen",
+  "title": "Operations Editor, Northstar Components Demo",
+  "bio": "Mara Chen is a fictional operations editor used for Content Engine Lite demos. Her writing explains technical buying decisions in plain language for teams that need to compare options before contacting suppliers.",
+  "background": "Former production coordinator in a small assembly shop. Experienced in turning specification notes, buyer questions, and support tickets into practical guides.",
+  "styleGuide": "Write calmly and concretely. Prefer examples, checklists, and comparison tables over broad claims. Mark assumptions clearly.",
+  "storyBank": [
+    {
+      "id": "demo-01",
+      "title": "The rejected vague spec sheet",
+      "summary": "A fictional buyer rejected a supplier page because it described parts as premium but did not show tolerances, materials, or use cases.",
+      "useWhen": "Use in articles about specification clarity or procurement confidence."
+    },
+    {
+      "id": "demo-02",
+      "title": "The sample kit checklist",
+      "summary": "A fictional operations team created a checklist to compare sample kits by material, fit, lead time, and replacement availability.",
+      "useWhen": "Use in buying-guide or checklist sections."
+    },
+    {
+      "id": "demo-03",
+      "title": "The maintenance question",
+      "summary": "A fictional customer asked whether a low-cost component would be harder to replace after six months of use.",
+      "useWhen": "Use in lifecycle cost or maintenance sections."
+    }
+  ]
+}

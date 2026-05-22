@@ -1,0 +1,46 @@
+{
+  "pillarPages": [
+    {
+      "anchor": "component sourcing guide",
+      "url": "/blog/component-sourcing-guide/",
+      "topic": "procurement planning",
+      "keywords": ["component sourcing", "supplier comparison", "sample kit"]
+    }
+  ],
+  "blogPosts": [
+    {
+      "anchor": "how to compare supplier spec sheets",
+      "url": "/blog/compare-supplier-spec-sheets/",
+      "topic": "spec sheet evaluation",
+      "keywords": ["spec sheet", "supplier comparison"]
+    },
+    {
+      "anchor": "sample kit checklist",
+      "url": "/blog/sample-kit-checklist/",
+      "topic": "sample kit evaluation",
+      "keywords": ["sample kit", "procurement checklist"]
+    }
+  ],
+  "productPages": [
+    {
+      "anchor": "request a demo sample kit",
+      "url": "/sample-kits/",
+      "topic": "sample kits",
+      "keywords": ["sample kit", "request samples"]
+    },
+    {
+      "anchor": "download component spec sheets",
+      "url": "/spec-sheets/",
+      "topic": "spec sheets",
+      "keywords": ["spec sheet", "technical data"]
+    }
+  ],
+  "trustPages": [
+    {
+      "anchor": "quality review process",
+      "url": "/quality-review/",
+      "topic": "quality control",
+      "keywords": ["quality review", "inspection"]
+    }
+  ]
+}

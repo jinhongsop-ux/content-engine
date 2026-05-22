@@ -1,0 +1,4 @@
+{
+  "meta": "Common baseline for both B2C and B2B article strategies. Keep this file generic and avoid business-model-specific article types.",
+  "usage": "Business-model-specific article types live in templates/b2c/article-types.json and templates/b2b/article-types.json. Site-level overrides live in sites/[siteId]/templates/article-types.json."
+}

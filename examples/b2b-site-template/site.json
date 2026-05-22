@@ -1,0 +1,49 @@
+{
+  "siteId": "customaluwindows",
+  "siteType": "b2b",
+  "siteName": "CustomAluWindows",
+  "domain": "https://customaluwindows.example.test",
+  "language": "en",
+  "businessModel": "B2B manufacturing / export / custom project inquiry",
+  "positioning": "A manufacturer and project supplier for custom aluminum windows and doors.",
+  "targetMarkets": ["United States", "Canada", "Australia"],
+  "targetIndustries": ["residential builders", "commercial contractors", "architects", "developers"],
+  "buyerRoles": ["procurement manager", "contractor", "architect", "project owner", "distributor"],
+  "conversionGoal": "RFQ, project consultation, catalog download, drawing/spec submission",
+  "coreProducts": ["aluminum windows", "sliding doors", "curtain wall systems"],
+  "capabilities": ["custom size", "OEM/ODM", "project engineering support", "bulk production"],
+  "certifications": [],
+  "qualityControl": [],
+  "leadTimePolicy": "",
+  "moqPolicy": "",
+  "mustSay": [],
+  "mustNotSay": [],
+  "claimPolicy": {
+    "noUnsupportedCertification": true,
+    "noFakeFactoryClaims": true,
+    "noExactLeadTimeUnlessProvided": true,
+    "noGuaranteedPerformanceUnlessDocumented": true
+  },
+  "writingStyle": {
+    "tone": "professional, specific, practical, procurement-focused",
+    "sentenceStyle": "clear explanations, short paragraphs, evidence-aware claims",
+    "avoidStyle": ["consumer hype", "cheap price language", "unsupported best claims", "vague factory slogans"]
+  },
+  "internalLinkPriority": [
+    "solutionPages",
+    "productPages",
+    "industryPages",
+    "caseStudies",
+    "certificationPages",
+    "contactPages",
+    "blogPosts"
+  ],
+  "wordpress": {
+    "endpoint": "",
+    "username": "",
+    "appPassword": "",
+    "defaultStatus": "draft",
+    "categories": [],
+    "tags": []
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "styleInstructions": "Write HTML that matches the website article style. Use clean sections, specs tables, comparison tables, FAQ blocks, CTA blocks, callout notes, and company credibility blocks. Do not output full-page HTML, CSS, Markdown, or scripts.",
+  "articleWrapperClass": "b2b-article",
+  "components": {
+    "hero": "Optional intro block with headline, summary, and buyer-focused context.",
+    "specTable": "Use tables for specs, materials, tolerances, lead time notes, and comparison criteria.",
+    "callout": "Use restrained callout boxes for procurement warnings, compliance notes, and RFQ reminders.",
+    "faq": "Use clear FAQ sections for MOQ, lead time, samples, customization, drawings, shipping, and after-sales.",
+    "cta": "Use practical CTA blocks: request a quote, send drawings, download catalog, or talk to an engineer.",
+    "credibilityBlock": "End with a company/team credibility block."
+  },
+  "referenceHtml": ""
+}

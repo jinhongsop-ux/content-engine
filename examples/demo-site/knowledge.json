@@ -1,0 +1,43 @@
+{
+  "terminology": [
+    {
+      "zh": "样品套件",
+      "en": "sample kit",
+      "definition": "A small set of representative parts used by buyers to test fit, finish, and handling before a larger order."
+    },
+    {
+      "zh": "交期",
+      "en": "lead time",
+      "definition": "The time between order confirmation and shipment readiness."
+    },
+    {
+      "zh": "规格表",
+      "en": "spec sheet",
+      "definition": "A document that lists material, dimensions, tolerances, compatibility notes, and other buyer-facing technical details."
+    }
+  ],
+  "authoritativeFacts": [
+    "B2B buyers usually need material, dimension, compatibility, lead time, and replacement details before making a procurement decision.",
+    "A sample kit can reduce ambiguity, but it does not replace production validation.",
+    "Claims about cost savings, durability, or compatibility should be tied to specific conditions or marked as general guidance."
+  ],
+  "buyerQuestions": [
+    {
+      "q": "What should a buyer check before requesting a sample kit?",
+      "a": "Check the intended use case, required dimensions, material constraints, lead time, replacement policy, and whether the sample represents the actual production part."
+    },
+    {
+      "q": "Can a comparison article recommend one component for every buyer?",
+      "a": "No. It should recommend by use case and state assumptions clearly."
+    },
+    {
+      "q": "Should generated content be published automatically?",
+      "a": "No. Content Engine Lite output should be reviewed by a human before publishing."
+    }
+  ],
+  "complianceBoundaries": [
+    "Do not promise guaranteed SEO performance.",
+    "Do not claim verified test results unless the source data includes them.",
+    "Do not present general buying guidance as legal, engineering, or safety certification advice."
+  ]
+}

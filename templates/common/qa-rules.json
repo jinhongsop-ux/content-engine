@@ -1,0 +1,38 @@
+{
+  "hardFail": [
+    {
+      "id": "empty_article",
+      "check": "article_tag_missing",
+      "message": "Missing <article> root element"
+    },
+    {
+      "id": "editor_markers",
+      "check": "editor_markers_found",
+      "message": "Contains TODO/editor/placeholder markers"
+    }
+  ],
+  "warnings": [
+    {
+      "id": "meta_description_absent",
+      "check": "meta_description_absent",
+      "message": "Meta description is missing"
+    },
+    {
+      "id": "schema_json_ld_absent",
+      "check": "schema_json_ld_absent",
+      "message": "Schema JSON-LD is missing"
+    },
+    {
+      "id": "keyword_coverage_missing",
+      "check": "keyword_coverage_missing",
+      "message": "Some required primary or secondary keywords were not naturally covered in the article."
+    }
+  ],
+  "scoreWeights": {
+    "seoStructure": 20,
+    "brandFit": 20,
+    "helpfulness": 20,
+    "readability": 20,
+    "publishReadiness": 20
+  }
+}

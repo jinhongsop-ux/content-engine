@@ -122,7 +122,7 @@
     {
       "id": "brand_voice_flat",
       "check": "brand_voice_generic_detected",
-      "message": "Article contains generic AI-style phrasing that conflicts with the Nookcraft brand voice. Check for: 'Furthermore', 'In conclusion', 'It's worth noting', 'Dive in', 'Game-changing', 'Seamlessly', 'Delve into'.",
+      "message": "Article contains generic AI-style phrasing that conflicts with the configured brand voice. Check for: 'Furthermore', 'In conclusion', 'It's worth noting', 'Dive in', 'Game-changing', 'Seamlessly', 'Delve into'.",
       "scorePenalty": 7
     },
     {

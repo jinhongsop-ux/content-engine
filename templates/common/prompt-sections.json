@@ -1,0 +1,6 @@
+{
+  "outputFormatRule": "Return publish-ready HTML only when generating final articles. Do not output Markdown fences, editor notes, or placeholder instructions.",
+  "languageRule": "Write reader-facing content in the site language. Internal configuration may be maintained in the operator's working language.",
+  "htmlStyleRule": "Follow the site's style-reference.json for article containers, headings, FAQ blocks, tables, callouts, CTA blocks, and visual rhythm.",
+  "sourceOfTruthRule": "Use site.json, author.json, knowledge.json, links.json, style-reference.json, project-instructions.md, and the keyword row as the source of truth."
+}

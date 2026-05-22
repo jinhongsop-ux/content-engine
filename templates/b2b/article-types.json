@@ -1,0 +1,52 @@
+{
+  "product-category-guide": {
+    "wordRange": [1200, 2000],
+    "schemaType": "Article",
+    "strategy": "Explain product types, specifications, material options, selection criteria, procurement risks, and RFQ next steps."
+  },
+  "application-guide": {
+    "wordRange": [1200, 2200],
+    "schemaType": "Article",
+    "strategy": "Explain how the product is used in a specific application, which problems it solves, what specs matter, and what buyers should confirm before ordering."
+  },
+  "industry-solution": {
+    "wordRange": [1500, 2500],
+    "schemaType": "Article",
+    "strategy": "Map industry pain points to product capabilities, compliance needs, documented examples, and consultation or RFQ CTA."
+  },
+  "manufacturing-process": {
+    "wordRange": [1200, 2000],
+    "schemaType": "Article",
+    "strategy": "Explain production steps, materials, QC checkpoints, tolerances, documentation, and supplier questions."
+  },
+  "materials-specs": {
+    "wordRange": [1000, 1800],
+    "schemaType": "Article",
+    "strategy": "Compare material or specification options by performance, cost drivers, application fit, and procurement risk."
+  },
+  "standards-certification": {
+    "wordRange": [1000, 1800],
+    "schemaType": "Article",
+    "strategy": "Explain standards, certificates, testing documents, and compliance boundaries without unsupported claims."
+  },
+  "supplier-comparison": {
+    "wordRange": [1400, 2400],
+    "schemaType": "Article",
+    "strategy": "Compare supplier types, capabilities, risk signals, qualification questions, and decision criteria."
+  },
+  "case-study": {
+    "wordRange": [900, 1600],
+    "schemaType": "Article",
+    "strategy": "Describe project background, challenge, solution, product choice, and outcome only when documented."
+  },
+  "procurement-faq": {
+    "wordRange": [800, 1400],
+    "schemaType": "FAQPage",
+    "strategy": "Answer MOQ, lead time, customization, samples, drawings, packaging, shipping, payment, and after-sales questions."
+  },
+  "pillar": {
+    "wordRange": [2500, 4200],
+    "schemaType": "Article",
+    "strategy": "Build a complete topic hub for a product category, application, or industry solution, then link to product, solution, case, certification, download, and contact pages."
+  }
+}

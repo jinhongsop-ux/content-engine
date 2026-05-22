@@ -1,0 +1,7 @@
+{
+  "authorDisclaimer": "About this guide: This article was prepared by the {brandName} product and project support team using documented product specifications, manufacturing notes, buyer questions, and project experience. Last reviewed in {reviewDate}.",
+  "observationalClaim": "Use only documented company capabilities, product specs, QC notes, certifications, case studies, and buyer questions as source material. If evidence is missing, phrase guidance as a buyer consideration, not as a company claim.",
+  "internalLinkRule": "Prioritize solution pages, product pages, industry pages, case studies, certification pages, contact/RFQ pages, and catalog/download pages. Links must move the buyer toward supplier evaluation.",
+  "ctaStyle": "End with a procurement-oriented next step such as request a quote, send drawings, download a catalog, compare specifications, or talk to the technical team.",
+  "styleReferenceRule": "For B2B articles, use reference HTML to create spec tables, selection criteria blocks, case/solution blocks, procurement FAQ accordions, and RFQ CTA sections."
+}

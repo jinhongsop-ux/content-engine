@@ -1,0 +1,29 @@
+{
+  "pillarPages": [],
+  "categoryPages": [],
+  "blogPosts": [],
+  "productPages": [
+    {
+      "anchor": "custom aluminum windows",
+      "url": "/custom-aluminum-windows/",
+      "topic": "Core product page",
+      "keywords": ["custom aluminum windows", "aluminum window manufacturer"]
+    }
+  ],
+  "trustPages": [],
+  "solutionPages": [],
+  "industryPages": [],
+  "applicationPages": [],
+  "caseStudies": [],
+  "certificationPages": [],
+  "capabilityPages": [],
+  "contactPages": [
+    {
+      "anchor": "request a quote",
+      "url": "/contact/",
+      "topic": "RFQ and project consultation",
+      "keywords": ["request quote", "send drawings"]
+    }
+  ],
+  "downloadPages": []
+}

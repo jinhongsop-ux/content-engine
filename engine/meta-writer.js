@@ -48,6 +48,11 @@ export async function writeMeta(ctx, task, qaResult, meta) {
     'Internal Links': qaResult.internalLinkCount || 0,
     'Generated At': now,
     'Article Type': task.articletype || task['article type'] || '',
+    'Buyer Role': task.buyerrole || '',
+    'Funnel Stage': task.funnelstage || '',
+    'Industry': task.industry || '',
+    'Application': task.application || '',
+    'Product Line': task.productline || '',
   });
 
   // ── Sheet 2: SEO Fields ──
@@ -61,6 +66,10 @@ export async function writeMeta(ctx, task, qaResult, meta) {
       'Meta Description': meta.metaDescription || '',
       'Focus Keyword':    task.keyword,
       'Schema Type':      meta.schema?.['@type'] || '',
+      'CTA Type':         task.ctatype || '',
+      'Evidence Needed':  task.evidenceneeded || '',
+      'Solution Target':  task.solutiontarget || '',
+      'RFQ Target':       task.rfqtarget || '',
     });
   }
 
@@ -108,6 +117,24 @@ export async function writeMeta(ctx, task, qaResult, meta) {
     'Generated At':      now,
   });
 
+  await upsertRow(wb, 'B2B Publish', 'Slug', slug, {
+    'Slug': slug,
+    'Keyword': task.keyword,
+    'Buyer Role': task.buyerrole || '',
+    'Funnel Stage': task.funnelstage || '',
+    'Industry': task.industry || '',
+    'Application': task.application || '',
+    'Product Line': task.productline || '',
+    'Geo Target': task.geotarget || '',
+    'CTA Type': task.ctatype || '',
+    'Evidence Needed': task.evidenceneeded || '',
+    'Case Target': task.casetarget || '',
+    'Solution Target': task.solutiontarget || '',
+    'RFQ Target': task.rfqtarget || '',
+    'Compliance Risk': task.compliancerisk || '',
+    'Generated At': now,
+  });
+
   await wb.xlsx.writeFile(filePath);
   return filePath;
 }
@@ -116,11 +143,12 @@ export async function writeMeta(ctx, task, qaResult, meta) {
 
 function initWorkbook(wb) {
   const sheets = {
-    'Articles':  ['Slug', 'Keyword', 'Status', 'Word Count', 'QA Score', 'Hard Fails', 'Warnings', 'Internal Links', 'Generated At', 'Article Type'],
-    'SEO Fields':['Slug', 'Keyword', 'SEO Title 1', 'SEO Title 2', 'SEO Title 3', 'Meta Description', 'Focus Keyword', 'Schema Type'],
+    'Articles':  ['Slug', 'Keyword', 'Status', 'Word Count', 'QA Score', 'Hard Fails', 'Warnings', 'Internal Links', 'Generated At', 'Article Type', 'Buyer Role', 'Funnel Stage', 'Industry', 'Application', 'Product Line'],
+    'SEO Fields':['Slug', 'Keyword', 'SEO Title 1', 'SEO Title 2', 'SEO Title 3', 'Meta Description', 'Focus Keyword', 'Schema Type', 'CTA Type', 'Evidence Needed', 'Solution Target', 'RFQ Target'],
     'Image ALTs':['Slug', 'Keyword', 'Position', 'ALT Suggestion'],
     'Schema':    ['Slug', 'Keyword', 'Schema Type', 'JSON-LD'],
     'QA Report': ['Slug', 'Keyword', 'Overall Score', 'Pass', 'SEO Structure', 'Brand Fit', 'Helpfulness', 'Readability', 'Publish Readiness', 'Hard Fails', 'Warnings', 'Generated At'],
+    'B2B Publish': ['Slug', 'Keyword', 'Buyer Role', 'Funnel Stage', 'Industry', 'Application', 'Product Line', 'Geo Target', 'CTA Type', 'Evidence Needed', 'Case Target', 'Solution Target', 'RFQ Target', 'Compliance Risk', 'Generated At'],
   };
 
   for (const [name, cols] of Object.entries(sheets)) {
@@ -154,8 +182,18 @@ async function upsertRow(wb, sheetName, keyCol, keyVal, data) {
     headerRow.commit();
   }
 
-  // Find existing row by key
-  const headers = sheet.getRow(1).values.slice(1); // slice(1) because ExcelJS 1-indexes
+  // Find existing row by key. If a newer version writes more columns, append them
+  // without disturbing older meta-table workbooks.
+  const headerRow = sheet.getRow(1);
+  let headers = headerRow.values.slice(1); // slice(1) because ExcelJS 1-indexes
+  for (const key of Object.keys(data)) {
+    if (!headers.includes(key)) headers.push(key);
+  }
+  headers.forEach((header, idx) => {
+    headerRow.getCell(idx + 1).value = header;
+  });
+  headerRow.font = { bold: true };
+  headerRow.commit();
   const keyIdx  = headers.indexOf(keyCol) + 1;     // back to 1-indexed
 
   let targetRow = null;

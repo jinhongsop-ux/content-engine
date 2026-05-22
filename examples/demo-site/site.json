@@ -1,0 +1,36 @@
+{
+  "siteId": "demo-site",
+  "siteName": "Northstar Components Demo",
+  "displayName": "Northstar Components Demo",
+  "domain": "https://demo-content-engine.local",
+  "language": "en",
+  "positioning": "A fictional B2B component supplier demo site used to show how Content Engine Lite organizes site data, keyword tasks, and article generation inputs.",
+  "audience": [
+    "operations managers",
+    "procurement teams",
+    "small manufacturing founders"
+  ],
+  "brandRole": "practical technical guide",
+  "conversionGoal": "encourage qualified buyers to request a sample kit or specification sheet",
+  "tone": "clear, practical, specific, not hype-driven",
+  "writingStyle": "Use concrete operational details, plain English, and buyer-safe caveats. Avoid promising business outcomes.",
+  "mustSay": [
+    "Generated content must be reviewed by a human before publishing.",
+    "Use measurable product and process details where available.",
+    "Clarify when a statement is general guidance rather than a verified claim."
+  ],
+  "mustNotSay": [
+    "guaranteed savings",
+    "best in the world",
+    "zero risk",
+    "fully automated publishing"
+  ],
+  "wordpress": {
+    "endpoint": "",
+    "username": "",
+    "appPassword": "",
+    "defaultStatus": "draft",
+    "categories": [],
+    "tags": []
+  }
+}

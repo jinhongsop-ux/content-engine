@@ -3,6 +3,9 @@ server.out.log
 server.err.log
 .env
 .env.*
+release/
+logs/
+runtime/
 
 sites/*/outputs/
 !sites/*/outputs/.gitkeep

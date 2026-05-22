@@ -1,0 +1,15 @@
+{
+  "brief": "Use clean B2B article HTML with readable sections, comparison tables, checklists, callout notes, and FAQ blocks. Keep the design neutral and practical.",
+  "htmlRules": [
+    "Return full article HTML only, not Markdown.",
+    "Use semantic article, section, h1, h2, h3, p, ul, ol, table, details, summary, blockquote, and aside elements when useful.",
+    "Use class names prefixed with demo-article-.",
+    "Avoid inline scripts.",
+    "Avoid exaggerated landing-page hero sections."
+  ],
+  "visualStyle": {
+    "font": "system sans-serif",
+    "tone": "clean, utilitarian, procurement-friendly",
+    "colors": ["#1f2937", "#2563eb", "#f8fafc", "#e5e7eb"]
+  }
+}
