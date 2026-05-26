@@ -6,6 +6,7 @@ server.err.log
 release/
 logs/
 runtime/
+site-recycle-bin/
 
 sites/*/outputs/
 !sites/*/outputs/.gitkeep

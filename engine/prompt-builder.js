@@ -163,28 +163,15 @@ ${promptSections.internalLinkRule || ''}
 Use <a href="URL">anchor text</a> directly in the article body. Do not list links separately.
 Use only full canonical site URLs. Never output root-relative links like href="/path/" and never output file:// links.`,
 
-    `# HTML Style Reference and Component Rules
-${styleReference && Object.keys(styleReference).length ? `
-Use this site-level style reference when choosing article HTML structure, class names, and content blocks:
-${styleReference.styleBrief ? summarize(styleReference.styleBrief, 12000) : summarize(styleReference, 12000)}
-
-${promptSections.styleReferenceRule || ''}
-` : 'No site style-reference.json is available. Use clean semantic article HTML and avoid full-page markup.'}
-
-The article must not look like plain unstyled text. Use publish-ready CMS-embeddable semantic HTML:
-- Use the configured article root class when available, such as <article class="...">.
-- Use section wrappers with site-specific classes for major blocks.
-- Treat the style reference as two things: operating instructions plus reference HTML. Study the reference HTML's component structure, class names, spacing rhythm, FAQ pattern, CTA pattern, table/list treatment, and visual hierarchy, then output article-body HTML that follows that same style system.
-- Reuse site-specific class names from the reference HTML when relevant. Do not invent unrelated generic class systems if reference classes exist.
-- Use <blockquote> for sourced or reflective quotes when appropriate.
-- Use <aside> or a site-specific note/warning class for care notes, cautions, or key takeaways.
-- Use <ul>, <ol>, and <table> when they improve scanning.
-- For B2B content, use tables for specifications, supplier qualification criteria, procurement questions, process steps, or comparison matrices when relevant.
-- Use FAQ accordion markup with <details><summary>Question</summary><p>Answer</p></details> when the article includes FAQ content.
-- Use CTA and related-link blocks with classes from the style reference when available. For B2B, CTA blocks should point to RFQ, contact, catalog/download, send drawings, or technical consultation paths.
+    `# Base HTML Output Rules
+This generation step is for content quality, not advanced visual formatting. Produce clean, stable, CMS-embeddable base article HTML:
+- Use <article>, one <h1>, useful <h2>/<h3>, <p>, <ul>/<ol>, <table>, <blockquote>, <aside>, and <details>/<summary> only when they help the reader.
+- Keep class names minimal and semantic. Do not try to imitate the full site visual system in this step.
+- Do not use style-reference.json, pasted homepage HTML, or visual design snippets to reshape the article during base generation.
 - Do not emit <style>, <script>, <head>, <body>, nav, footer, or full-page layout markup.
-- Do not use inline CSS unless the style reference explicitly says to do so.
-- Do not copy the whole reference page. Extract and adapt only the article components and content blocks.`,
+- Do not use inline CSS.
+- The separate "polish formatting" step will apply site-specific HTML structure, classes, accordions, cards, CTA blocks, and visual hierarchy later.
+${promptSections.styleReferenceRule ? `Style reference note for later polish step only: ${summarize(promptSections.styleReferenceRule, 800)}` : ''}`,
 
     `# ${outputMode === 'article' ? 'Article' : 'Outline'} Requirements
 Target length: ${minWords}-${maxWords} words.

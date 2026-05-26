@@ -28,6 +28,7 @@ export const router = Router();
 const ROOT_DIR = join(__dirname, '..');
 const SITES_DIR = join(ROOT_DIR, 'sites');
 const TEMPLATES_DIR = join(ROOT_DIR, 'templates');
+const SITE_RECYCLE_DIR = join(ROOT_DIR, 'site-recycle-bin');
 
 const CONFIG_FILES = {
   site: 'site.json',
@@ -105,18 +106,37 @@ router.delete('/sites/:siteId', (req, res) => {
   try {
     const { siteId } = req.params;
     const confirmSiteId = String(req.body?.confirmSiteId || '').trim();
+    const confirmText = String(req.body?.confirmText || '').trim();
     if (confirmSiteId !== siteId) {
       return res.status(400).json({ error: 'Deletion requires confirmSiteId matching the siteId.' });
+    }
+    if (confirmText !== `DELETE ${siteId}`) {
+      return res.status(400).json({ error: `Deletion requires confirmText: DELETE ${siteId}` });
     }
     const siteDir = getSiteDir(siteId);
     const resolvedRoot = fs.realpathSync(SITES_DIR);
     const resolvedSite = fs.realpathSync(siteDir);
-    if (!resolvedSite.startsWith(resolvedRoot + path.sep)) {
+    const rel = path.relative(resolvedRoot, resolvedSite);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
       return res.status(400).json({ error: 'Refusing to delete outside the sites directory.' });
     }
-    fs.rmSync(resolvedSite, { recursive: true, force: false });
+    fs.mkdirSync(SITE_RECYCLE_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    let recycleName = `${siteId}-${stamp}`;
+    let recyclePath = join(SITE_RECYCLE_DIR, recycleName);
+    let counter = 1;
+    while (fs.existsSync(recyclePath)) {
+      recycleName = `${siteId}-${stamp}-${counter++}`;
+      recyclePath = join(SITE_RECYCLE_DIR, recycleName);
+    }
+    fs.renameSync(resolvedSite, recyclePath);
+    fs.writeFileSync(
+      join(recyclePath, '.recycle-info.json'),
+      JSON.stringify({ siteId, deletedAt: new Date().toISOString(), originalPath: resolvedSite }, null, 2),
+      'utf-8',
+    );
     stores.delete(siteId);
-    res.json({ ok: true, siteId });
+    res.json({ ok: true, siteId, mode: 'recycled', recycleName });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -598,6 +618,47 @@ router.post('/sites/:siteId/generate-article/:slug', async (req, res) => {
   }
 });
 
+router.post('/sites/:siteId/polish/:slug', async (req, res) => {
+  const { siteId, slug } = req.params;
+  const apiConfig = pickApiConfig(req.body || {});
+
+  try {
+    const result = await polishArticleHtml(siteId, slug, apiConfig);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/sites/:siteId/polish', async (req, res) => {
+  const { siteId } = req.params;
+  const { slugs = [] } = req.body || {};
+  const apiConfig = pickApiConfig(req.body || {});
+  const list = Array.isArray(slugs) ? slugs.map(sanitizeFilePart).filter(Boolean) : [];
+  if (!list.length) return res.status(400).json({ error: 'No article slugs selected for polishing.' });
+
+  setupSSE(res);
+  const send = makeSend(res);
+
+  try {
+    send('polish-start', { total: list.length });
+    for (const slug of list) {
+      try {
+        send('polish-task-start', { slug });
+        const result = await polishArticleHtml(siteId, slug, apiConfig);
+        send('polish-task-done', { slug, status: 'done', ...result });
+      } catch (err) {
+        send('polish-task-done', { slug, status: 'failed', error: err.message });
+      }
+    }
+    send('polish-done', { total: list.length });
+    res.end();
+  } catch (err) {
+    send('error', { message: err.message });
+    res.end();
+  }
+});
+
 router.post('/sites/:siteId/reset', async (req, res) => {
   try {
     const store = await getStore(req.params.siteId);
@@ -696,8 +757,9 @@ router.get('/sites/:siteId/qa/:slug', (req, res) => {
   try {
     const siteDir = getSiteDir(req.params.siteId);
     const qa = readJsonFile(join(siteDir, 'outputs', `${req.params.slug}.qa.json`));
-    if (!qa) return res.status(404).json({ error: 'QA report not found' });
-    res.json({ qa });
+    const polishQa = readJsonFile(join(siteDir, 'outputs', `${req.params.slug}.polished.qa.json`));
+    if (!qa && !polishQa) return res.status(404).json({ error: 'QA report not found' });
+    res.json({ qa, polishQa });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -708,29 +770,62 @@ router.get('/sites/:siteId/data-pack/:slug', async (req, res) => {
     const { siteId, slug } = req.params;
     const siteDir = getSiteDir(siteId);
     const outputDir = join(siteDir, 'outputs');
+    const safeSlug = sanitizeFilePart(slug);
     const outline = readFirstJsonFile([
-      join(outputDir, `${slug}.outline.json`),
-      join(siteDir, 'outlines', `${slug}.json`),
+      join(outputDir, `${safeSlug}.outline.json`),
+      join(siteDir, 'outlines', `${safeSlug}.json`),
     ]);
-    const qa = readJsonFile(join(outputDir, `${slug}.qa.json`));
+    const qa = readJsonFile(join(outputDir, `${safeSlug}.qa.json`));
+    const polishQa = readJsonFile(join(outputDir, `${safeSlug}.polished.qa.json`));
     const dataPack = readFirstJsonFile([
-      join(outputDir, `${slug}.data-pack.json`),
-      join(outputDir, `${slug}-data-pack.json`),
+      join(outputDir, `${safeSlug}.data-pack.json`),
+      join(outputDir, `${safeSlug}-data-pack.json`),
     ]);
-    const publishPack = fs.existsSync(join(outputDir, `${slug}.html`))
-      ? await buildPublishPack(siteId, slug)
+    const basePath = getArticleHtmlPath(siteDir, safeSlug, 'base');
+    const polishedPath = getArticleHtmlPath(siteDir, safeSlug, 'polished');
+    const autoPath = getArticleHtmlPath(siteDir, safeSlug, 'auto');
+    const imagePlan = readJsonFile(imagePlanPath(siteDir, safeSlug));
+    const store = await getStore(siteId);
+    const row = store.getOne(safeSlug) || {};
+    const htmlVariants = {
+      base: basePath ? { exists: true, bytes: fs.statSync(basePath).size, file: path.basename(basePath) } : { exists: false },
+      polished: polishedPath ? {
+        exists: true,
+        bytes: fs.statSync(polishedPath).size,
+        file: path.basename(polishedPath),
+        qa: polishQa,
+      } : { exists: false },
+      auto: autoPath ? (autoPath.endsWith('.polished.html') ? 'polished' : 'base') : null,
+    };
+    const publishPack = autoPath
+      ? await buildPublishPack(siteId, safeSlug)
       : null;
-    res.json({ outline, qa, dataPack, publishPack });
+    res.json({
+      siteId,
+      slug: safeSlug,
+      keyword: row.keyword || dataPack?.keyword || outline?.keyword || safeSlug,
+      keywordRow: row,
+      htmlVariants,
+      outline,
+      qa,
+      polishQa,
+      imagePlan,
+      dataPack,
+      publishPack,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 router.get('/sites/:siteId/articles/:slug', (req, res) => {
-  const p = join(SITES_DIR, req.params.siteId, 'outputs', `${req.params.slug}.html`);
-  if (!fs.existsSync(p)) return res.status(404).json({ error: 'Article not found' });
+  const siteDir = join(SITES_DIR, req.params.siteId);
+  const variant = String(req.query.variant || 'auto');
+  const p = getArticleHtmlPath(siteDir, req.params.slug, variant);
+  if (!p) return res.status(404).json({ error: 'Article not found' });
   const download = req.query.download === '1' || req.query.download === 'true';
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('X-Content-Engine-Variant', p.endsWith('.polished.html') ? 'polished' : 'base');
   if (download) {
     res.setHeader('Content-Disposition', `attachment; filename="${req.params.slug}.html"`);
   }
@@ -757,7 +852,14 @@ router.get('/sites/:siteId/export', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${req.params.siteId}.zip"`);
   const arc = archiver('zip', { zlib: { level: 9 } });
   arc.pipe(res);
-  fs.readdirSync(dir).filter(f => f.endsWith('.html')).forEach(f => arc.file(join(dir, f), { name: f }));
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.html'));
+  const slugs = new Set(files.map(f => f.replace(/\.polished\.html$/i, '').replace(/\.html$/i, '')));
+  for (const slug of slugs) {
+    const polished = join(dir, `${slug}.polished.html`);
+    const base = join(dir, `${slug}.html`);
+    if (fs.existsSync(polished)) arc.file(polished, { name: `${slug}.html` });
+    else if (fs.existsSync(base)) arc.file(base, { name: `${slug}.html` });
+  }
   arc.finalize();
 });
 
@@ -2561,6 +2663,260 @@ async function generateArticleFromOutline(ctx, row, outline, apiConfig = {}) {
   return { html, meta: genResult.meta, qa, dataPack };
 }
 
+async function polishArticleHtml(siteId, slug, apiConfig = {}) {
+  const ctx = await loadSiteContext(siteId);
+  const store = await getStore(siteId);
+  const row = store.getOne(slug) || {};
+  const safeSlug = sanitizeFilePart(slug);
+  const basePath = join(ctx.outputDir, `${safeSlug}.html`);
+  if (!fs.existsSync(basePath)) throw new Error('Base article HTML not found. Generate the article first.');
+
+  const baseHtml = fs.readFileSync(basePath, 'utf-8');
+  const styleRef = ctx.styleReference || readJsonFile(join(ctx.siteDir, 'style-reference.json')) || {};
+  const { systemPrompt, userPrompt } = buildPolishPrompt(ctx, row, baseHtml, styleRef);
+  const polishConfig = {
+    ...apiConfig,
+    provider: apiConfig.provider || 'gemini',
+    model: apiConfig.model || 'gemini-3.1-flash-lite',
+    maxTokens: Number(apiConfig.maxTokens) || 12000,
+    timeoutMs: Number(apiConfig.timeoutMs) || 240000,
+  };
+  let raw = '';
+  let modelError = '';
+  try {
+    raw = await callTextModel(systemPrompt, userPrompt, {
+      ...polishConfig,
+    });
+  } catch (err) {
+    modelError = err.message || String(err);
+  }
+  let polished = raw ? normalizeArticleLinks(cleanPolishedHtml(extractHtmlOnly(raw)), ctx, row) : '';
+  let qa = raw ? validatePolishedHtml(baseHtml, polished) : { pass: false, issues: ['model call failed'] };
+  if (!qa.pass) {
+    const modelIssues = qa.issues;
+    polished = deterministicPolishHtml(baseHtml, ctx, row);
+    qa = validatePolishedHtml(baseHtml, polished);
+    qa.fallbackUsed = true;
+    qa.modelIssues = modelIssues;
+    if (modelError) qa.modelError = modelError;
+    if (!qa.pass) throw new Error(`Polished HTML failed structure checks: ${modelIssues.join('; ')}`);
+  }
+
+  const polishedPath = join(ctx.outputDir, `${safeSlug}.polished.html`);
+  fs.writeFileSync(polishedPath, polished, 'utf-8');
+  const reportPath = join(ctx.outputDir, `${safeSlug}.polished.qa.json`);
+  fs.writeFileSync(reportPath, JSON.stringify({ ...qa, generatedAt: new Date().toISOString() }, null, 2), 'utf-8');
+  return {
+    slug: safeSlug,
+    html: polished,
+    variant: 'polished',
+    bytes: Buffer.byteLength(polished, 'utf-8'),
+    qa,
+  };
+}
+
+function buildPolishPrompt(ctx, row, html, styleRef = {}) {
+  const site = ctx.site || {};
+  const brandName = site.brandName || site.siteName || site.siteId || 'the site';
+  const styleBrief = summarizePolishStyle(styleRef);
+  const project = ctx.projectInstructions ? summarize(ctx.projectInstructions, 3000) : '';
+  const systemPrompt = [
+    `You are an HTML article formatter for ${brandName}.`,
+    'Your job is to transform already-approved base article HTML into brand-matched, CMS-embeddable article-body HTML.',
+    'Do not rewrite the article argument, facts, claims, links, keywords, statistics, product details, CTA target URLs, or meaning.',
+    'Only improve HTML structure, semantic grouping, class names, scanability, component markup, and visual hierarchy.',
+    'Return article-body HTML only. No markdown fences, no commentary, no <html>, <head>, <body>, <script>, nav, footer, or meta tags.',
+    'You may include exactly one scoped <style data-content-engine-article-style> block inside the <article> if it defines article-only CSS. Do not use global selectors outside the article root class.',
+    'Keep all existing href values exactly unless they are malformed file:// links; never invent new destination URLs.',
+    'Preserve the base article H1 policy: if the base HTML has an H1, keep exactly one H1; if the base HTML has no H1 because the CMS title is separate, do not add one.',
+    'Use details/summary for FAQ sections when suitable. Use tables, callouts, cards, note blocks, comparison boxes, buyer-summary blocks, and CTA blocks when they improve reading.',
+    'The polished output should be visibly different from the base HTML: clear article container, section rhythm, styled tables, callouts, FAQ cards, and a CTA block if the base HTML has one.',
+    'If the style reference is weak or generic, use restrained semantic HTML and brand-prefixed class names instead of copying irrelevant layout.'
+  ].join('\n');
+
+  const userPrompt = [
+    `Site: ${brandName}`,
+    `Domain: ${site.domain || ''}`,
+    `Language: ${site.language || 'en'}`,
+    `Keyword: ${row.keyword || ''}`,
+    `Article type: ${row.articletype || ''}`,
+    project ? `\nProject instructions to respect without changing article facts:\n${project}` : '',
+    `\nStyle reference / formatting rules:\n${styleBrief || 'Use clean semantic article HTML with clear sections, readable tables/lists, restrained callouts, and a final CTA block when one already exists in the base HTML.'}`,
+    `\nBase article HTML to format:\n${html}`
+  ].filter(Boolean).join('\n');
+  return { systemPrompt, userPrompt };
+}
+
+function summarizePolishStyle(styleRef = {}) {
+  if (!styleRef || typeof styleRef !== 'object') return String(styleRef || '').trim();
+  const parts = [];
+  for (const key of ['styleBrief', 'styleReference', 'visualStyle', 'designSystem', 'articleStructure', 'referenceHtml']) {
+    if (typeof styleRef[key] === 'string' && styleRef[key].trim()) parts.push(`${key}:\n${styleRef[key].trim()}`);
+  }
+  if (Array.isArray(styleRef.htmlRulesForGeneration) && styleRef.htmlRulesForGeneration.length) {
+    parts.push(`htmlRulesForGeneration:\n${styleRef.htmlRulesForGeneration.map(rule => `- ${rule}`).join('\n')}`);
+  }
+  if (styleRef.extractedStyle && typeof styleRef.extractedStyle === 'object') {
+    parts.push(`extractedStyle:\n${JSON.stringify(styleRef.extractedStyle, null, 2)}`);
+  }
+  if (!parts.length) parts.push(JSON.stringify(styleRef, null, 2));
+  return summarize(parts.join('\n\n'), 14000);
+}
+
+function extractHtmlOnly(text = '') {
+  let out = String(text || '').trim()
+    .replace(/^```html\s*/i, '')
+    .replace(/^```\s*/, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const articleMatch = out.match(/<article\b[\s\S]*<\/article>/i);
+  if (articleMatch) out = articleMatch[0];
+  out = out.replace(/<!doctype[\s\S]*?<body[^>]*>/i, '').replace(/<\/body>[\s\S]*$/i, '').trim();
+  return out;
+}
+
+function cleanPolishedHtml(html) {
+  if (!html || typeof html !== 'string') return '';
+  let out = html.trim();
+  out = out.replace(/<!DOCTYPE[^>]*>/gi, '');
+  out = out.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+  out = out.replace(/<meta\b[^>]*\/?>/gi, '');
+  out = out.replace(/<link\b[^>]*\/?>/gi, '');
+  out = out.replace(/<!--[\s\S]*?-->/g, '');
+  out = out.replace(/```(?:html|json)?/gi, '').replace(/```/g, '');
+  for (const tag of ['html', 'head', 'body', 'nav', 'footer', 'header']) {
+    out = out.replace(new RegExp(`<${tag}[^>]*>`, 'gi'), '');
+    out = out.replace(new RegExp(`</${tag}>`, 'gi'), '');
+  }
+  out = out.replace(/\s+on\w+="[^"]*"/gi, '');
+  out = out.replace(/\s+on\w+='[^']*'/gi, '');
+  out = out.replace(/\s+style="[^"]*"/gi, '');
+  out = out.replace(/<style\b(?![^>]*data-(?:content-engine|sds)-article-style)[^>]*>[\s\S]*?<\/style>/gi, '');
+  out = out.replace(/<p[^>]*>\s*(?:&nbsp;|\s)*<\/p>/gi, '');
+  const articleStart = out.search(/<article\b/i);
+  if (articleStart > 0) out = out.slice(articleStart);
+  if (articleStart < 0) out = `<article>\n${out}\n</article>`;
+  if (!/<\/article>\s*$/i.test(out)) out += '\n</article>';
+  return out.trim();
+}
+
+function validatePolishedHtml(baseHtml = '', polishedHtml = '') {
+  const issues = [];
+  if (!polishedHtml.trim()) issues.push('empty output');
+  if (/<(?:html|head|body|script|meta|link)\b/i.test(polishedHtml)) issues.push('full-page or unsafe tags detected');
+  if (/<style\b(?![^>]*data-(?:content-engine|sds)-article-style)/i.test(polishedHtml)) issues.push('unscoped style tag detected');
+  const baseH1 = (baseHtml.match(/<h1\b/gi) || []).length;
+  const polishedH1 = (polishedHtml.match(/<h1\b/gi) || []).length;
+  if (baseH1 > 0 && polishedH1 !== 1) issues.push('must preserve exactly one H1');
+  if (baseH1 === 0 && polishedH1 > 1) issues.push('must not add multiple H1 headings');
+  const baseLinks = (baseHtml.match(/<a\b[^>]*href=/gi) || []).length;
+  const polishedLinks = (polishedHtml.match(/<a\b[^>]*href=/gi) || []).length;
+  if (polishedLinks < baseLinks) issues.push(`lost internal/external links (${polishedLinks}/${baseLinks})`);
+  const baseWords = countArticleWords(baseHtml);
+  const polishedWords = countArticleWords(polishedHtml);
+  if (baseWords > 200 && polishedWords < Math.round(baseWords * 0.85)) issues.push(`too much content removed (${polishedWords}/${baseWords} words)`);
+  return {
+    pass: issues.length === 0,
+    issues,
+    baseWordCount: baseWords,
+    polishedWordCount: polishedWords,
+    baseLinkCount: baseLinks,
+    polishedLinkCount: polishedLinks,
+  };
+}
+
+function deterministicPolishHtml(baseHtml = '', ctx = {}, row = {}) {
+  const siteId = sanitizeFilePart(ctx.site?.siteId || 'content-engine');
+  const classPrefix = sanitizeCssClassPrefix(siteId || 'content-engine');
+  const rootClass = `${classPrefix}-article`;
+  let html = extractHtmlOnly(baseHtml);
+  html = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+    .replace(/<link\b[^>]*>/gi, '')
+    .replace(/<meta\b[^>]*>/gi, '')
+    .trim();
+
+  if (/<article\b/i.test(html)) {
+    html = html.replace(/<article\b([^>]*)>/i, (match, attrs = '') => {
+      if (/\bclass\s*=/.test(attrs)) {
+        return `<article${attrs.replace(/\bclass\s*=\s*(['"])(.*?)\1/i, (_m, quote, value) => {
+          const classes = new Set(String(value || '').split(/\s+/).filter(Boolean));
+          classes.add('blog-article');
+          classes.add(rootClass);
+          return `class=${quote}${[...classes].join(' ')}${quote}`;
+        })}>`;
+      }
+      return `<article${attrs} class="blog-article ${rootClass}">`;
+    });
+  } else {
+    html = `<article class="blog-article ${rootClass}">\n${html}\n</article>`;
+  }
+
+  html = html
+    .replace(/<article\b([^>]*)>/i, match => `${match}\n${buildScopedArticleStyle(classPrefix)}`)
+    .replace(/<p>\s*<strong>\s*((?:Useful number|Quick answer|Bottom line|Note|Warning|Do not start here|Key takeaway)[^<:]*:?)\s*<\/strong>\s*([\s\S]*?)<\/p>/gi, `<aside class="${classPrefix}-note"><strong>$1</strong> $2</aside>`)
+    .replace(/<p>\s*<strong>\s*((?:Important|Safety note|Before you buy|Practical rule)[^<:]*:?)\s*<\/strong>\s*([\s\S]*?)<\/p>/gi, `<aside class="${classPrefix}-warning"><strong>$1</strong> $2</aside>`)
+    .replace(/<section\b(?![^>]*\bclass=)([^>]*)>/gi, `<section class="${classPrefix}-section"$1>`)
+    .replace(/<h1\b(?![^>]*\bclass=)([^>]*)>/gi, `<h1 class="${classPrefix}-title"$1>`)
+    .replace(/<h2\b(?![^>]*\bclass=)([^>]*)>/gi, `<h2 class="${classPrefix}-section-title"$1>`)
+    .replace(/<h3\b(?![^>]*\bclass=)([^>]*)>/gi, `<h3 class="${classPrefix}-subsection-title"$1>`)
+    .replace(/<table\b(?![^>]*\bclass=)([^>]*)>/gi, `<table class="${classPrefix}-table"$1>`)
+    .replace(/<blockquote\b(?![^>]*\bclass=)([^>]*)>/gi, `<blockquote class="${classPrefix}-quote"$1>`)
+    .replace(/<aside\b(?![^>]*\bclass=)([^>]*)>/gi, `<aside class="${classPrefix}-note"$1>`);
+
+  return normalizeArticleLinks(html, ctx, row);
+}
+
+function buildScopedArticleStyle(classPrefix) {
+  const root = `.${classPrefix}-article`;
+  return `<style data-content-engine-article-style>
+${root}, .blog-article{
+  box-sizing:border-box;
+  max-width:920px;
+  margin:0 auto;
+  padding:42px 52px;
+  color:#1f2933;
+  background:#fff;
+  font-family:Inter,Arial,Helvetica,sans-serif;
+  font-size:17px;
+  line-height:1.72;
+}
+${root} *, .blog-article *{box-sizing:border-box}
+${root} h1,${root} h2,${root} h3,.blog-article h1,.blog-article h2,.blog-article h3{color:#111827;line-height:1.2;letter-spacing:0;margin:0 0 16px}
+${root} h1,.blog-article h1{font-size:36px;margin-bottom:18px}
+${root} h2,.blog-article h2{font-size:26px;margin-top:42px;padding-top:22px;border-top:1px solid #e5e7eb}
+${root} h3,.blog-article h3{font-size:20px;margin-top:26px}
+${root} p,.blog-article p{margin:0 0 18px}
+${root} a,.blog-article a{color:#1d70b8;text-decoration:underline;text-underline-offset:3px}
+${root} ul,${root} ol,.blog-article ul,.blog-article ol{margin:0 0 22px 24px;padding:0}
+${root} li,.blog-article li{margin:8px 0}
+${root} table,.blog-article table{width:100%;border-collapse:collapse;margin:26px 0;font-size:15px}
+${root} th,${root} td,.blog-article th,.blog-article td{border:1px solid #d8dee8;padding:12px 14px;text-align:left;vertical-align:top}
+${root} th,.blog-article th{background:#eaf4ff;color:#111827;font-weight:700}
+${root} blockquote,${root} aside,.blog-article blockquote,.blog-article aside{margin:24px 0;padding:18px 20px;border-left:4px solid #1d70b8;background:#eef7ff;border-radius:6px}
+${root} details,.blog-article details{margin:14px 0;padding:16px 18px;border:1px solid #d8dee8;border-radius:6px;background:#fbfcfe}
+${root} summary,.blog-article summary{cursor:pointer;font-weight:700;color:#111827}
+${root} .${classPrefix}-warning,.blog-article .${classPrefix}-warning{background:#fff7ed;border-left-color:#d97706}
+${root} .cta,${root} .cta-block,${root} .${classPrefix}-cta,.blog-article .cta,.blog-article .cta-block,.blog-article .${classPrefix}-cta{margin:28px 0;padding:20px 22px;border:1px solid color-mix(in srgb,#1d70b8 35%,white);background:#eef7ff;border-radius:8px}
+${root} img,.blog-article img{max-width:100%;height:auto}
+@media (max-width:720px){
+  ${root}, .blog-article{padding:28px 20px;font-size:16px}
+  ${root} h1,.blog-article h1{font-size:29px}
+  ${root} h2,.blog-article h2{font-size:23px}
+  ${root} table,.blog-article table{display:block;overflow-x:auto}
+}
+</style>`;
+}
+
+function sanitizeCssClassPrefix(value = '') {
+  const out = String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return out || 'content-engine';
+}
+
 function normalizeArticleLinks(html, ctx = {}, row = {}) {
   const domain = String(ctx.site?.domain || '').trim().replace(/\/+$/, '');
   if (!html || !domain) return html;
@@ -2897,10 +3253,21 @@ function readFirstJsonFile(filePaths) {
   return null;
 }
 
+function getArticleHtmlPath(siteDir, slug, variant = 'auto') {
+  const safeSlug = sanitizeFilePart(slug);
+  const outputDir = join(siteDir, 'outputs');
+  const basePath = join(outputDir, `${safeSlug}.html`);
+  const polishedPath = join(outputDir, `${safeSlug}.polished.html`);
+  if (variant === 'base') return fs.existsSync(basePath) ? basePath : null;
+  if (variant === 'polished') return fs.existsSync(polishedPath) ? polishedPath : null;
+  if (fs.existsSync(polishedPath)) return polishedPath;
+  return fs.existsSync(basePath) ? basePath : null;
+}
+
 async function buildPublishPack(siteId, slug) {
   const siteDir = getSiteDir(siteId);
-  const htmlPath = join(siteDir, 'outputs', `${slug}.html`);
-  if (!fs.existsSync(htmlPath)) throw new Error('Article not found');
+  const htmlPath = getArticleHtmlPath(siteDir, slug, 'auto');
+  if (!htmlPath || !fs.existsSync(htmlPath)) throw new Error('Article not found');
 
   const html = fs.readFileSync(htmlPath, 'utf-8');
   const meta = await readPublishMeta(siteDir, slug);
@@ -2923,6 +3290,7 @@ async function buildPublishPack(siteId, slug) {
     focusKeyword,
     publishCtas,
     b2bPublish,
+    htmlVariant: htmlPath.endsWith('.polished.html') ? 'polished' : 'base',
     publishChecklist: checklist,
   };
 }
@@ -3102,8 +3470,8 @@ async function getImagePlan(siteId, slug) {
 
 async function buildDefaultImagePlan(siteId, slug) {
   const siteDir = getSiteDir(siteId);
-  const htmlPath = join(siteDir, 'outputs', `${slug}.html`);
-  if (!fs.existsSync(htmlPath)) throw new Error('Article not found. Generate the article before creating an image plan.');
+  const htmlPath = getArticleHtmlPath(siteDir, slug, 'auto');
+  if (!htmlPath || !fs.existsSync(htmlPath)) throw new Error('Article not found. Generate the article before creating an image plan.');
   const html = fs.readFileSync(htmlPath, 'utf-8');
   const store = await getStore(siteId);
   const row = store.getOne(slug) || {};
@@ -3207,7 +3575,10 @@ function summarizeImageStyle(styleRef = {}) {
 }
 
 function countArticleWords(html) {
-  const text = stripTags(html).replace(/[\u4e00-\u9fff]/g, ' x ');
+  const visibleHtml = String(html || '')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  const text = stripTags(visibleHtml).replace(/[\u4e00-\u9fff]/g, ' x ');
   return (text.match(/[A-Za-z0-9][A-Za-z0-9'?-]*/g) || []).length;
 }
 
@@ -3310,8 +3681,8 @@ function mimeToExt(mime = '') {
 function insertImagesIntoArticle(siteId, slug, suppliedPlan = null) {
   const siteDir = getSiteDir(siteId);
   const safeSlug = sanitizeFilePart(slug);
-  const htmlPath = join(siteDir, 'outputs', `${safeSlug}.html`);
-  if (!fs.existsSync(htmlPath)) throw new Error('Article not found');
+  const htmlPath = getArticleHtmlPath(siteDir, safeSlug, 'auto');
+  if (!htmlPath || !fs.existsSync(htmlPath)) throw new Error('Article not found');
   const plan = normalizeImagePlan(suppliedPlan || readJsonFile(imagePlanPath(siteDir, safeSlug)) || {}, siteId, safeSlug);
   const uploadSlots = plan.slots.filter(slot => slot.imageFile || slot.imageUrl);
   if (!uploadSlots.length) throw new Error('No uploaded images to insert.');

@@ -146,6 +146,9 @@ td.col-actions { width:150px; }
 .subpane { display:none; }
 .subpane.on { display:block; }
 .config-card, .logic-card, details.config-card { background:var(--bg); border:.5px solid var(--border); border-radius:var(--r-lg); padding:12px; margin-bottom:10px; }
+.config-card.danger-zone { border-color:var(--red); background:linear-gradient(0deg, var(--red-bg), var(--bg) 42%); }
+.delete-site-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.delete-site-meta { flex:1; min-width:260px; font-size:12px; color:var(--text2); line-height:1.7; }
 .card-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
 .card-title { font-size:13px; font-weight:600; flex:1; }
 summary { cursor:pointer; font-weight:600; color:var(--text); }
@@ -336,6 +339,13 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
           <span class="hint">如果已经选中新站点，也可以从这里直接进入上传流程。</span>
         </div>
       </div>
+      <div class="config-card danger-zone">
+        <div class="card-head">
+          <span class="card-title" style="color:var(--red)">删除站点</span>
+          <span class="hint">删除会先移入回收站，不会直接物理清除；需要两重确认。</span>
+        </div>
+        <div id="siteDeletePanel"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-green" id="createSiteBtn" onclick="createSite(this)">创建 C端站点</button>
@@ -366,6 +376,9 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       </div>
       <div class="ctrl-row">
         <button class="btn btn-green" style="flex:1" onclick="publishSelectedWordPress(this)">发布已选到 WordPress</button>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn btn-sm" style="flex:1" onclick="polishSelectedArticles(this)">美化已选文章</button>
       </div>
       <div class="conc-row">
         <span>并发数</span>
@@ -407,6 +420,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
         <span class="batch-count" id="batchCount">已选择 0 项</span>
         <button class="btn btn-sm btn-blue" onclick="runSelectedOutlines()">生成已选大纲</button>
         <button class="btn btn-sm btn-blue" onclick="runSelectedArticles()">生成已选文章</button>
+        <button class="btn btn-sm" onclick="polishSelectedArticles(this)">美化已选文章</button>
         <button class="btn btn-sm btn-green" onclick="publishSelectedWordPress(this)">发布已选到 WordPress</button>
         <button class="btn btn-sm" onclick="resetSelected()">重置已选</button>
         <button class="btn btn-sm" onclick="clearSelection()">取消选择</button>
@@ -582,7 +596,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
             <div class="form-field"><label>Max Tokens</label><input id="g_maxTokens" type="number" placeholder="4096"></div>
             <div class="form-field"><label>&#36229;&#26102;&#27627;&#31186;</label><input id="g_timeoutMs" type="number" placeholder="120000"></div>
           </div>
-          <div class="form-actions"><button class="btn btn-green" onclick="saveModelSettings(this)">&#20445;&#23384; Gemini &#35774;&#32622;</button><button class="btn" onclick="resetGeminiSettings()">&#24674;&#22797; Gemini &#40664;&#35748;</button><span class="hint">&#24314;&#35758;&#40664;&#35748;&#20351;&#29992; gemini-3.1-flash-lite&#65292;&#36866;&#21512;&#22823;&#37327;&#32763;&#35793;&#21644;&#22270;&#29255; ALT &#35782;&#21035;&#12290;</span></div>
+          <div class="form-actions"><button class="btn btn-green" onclick="saveModelSettings(this)">&#20445;&#23384; Gemini &#35774;&#32622;</button><button class="btn" onclick="resetGeminiSettings()">&#24674;&#22797; Gemini &#40664;&#35748;</button><button class="btn" onclick="window.open('https://aistudio.google.com/apikey','_blank')">获取 Google AI Studio Key</button><span class="hint">Gemini 用于预览翻译、图片 ALT 识别和文章 HTML 美化格式。</span></div>
         </div>
         </div>
         </div>
@@ -608,6 +622,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
 <div class="drawer" id="drawer">
   <div class="drawer-head">
     <span class="drawer-kw"><span id="drawerKw">—</span><span class="drawer-meta" id="drawerMeta"></span></span>
+    <button class="btn btn-sm btn-blue" onclick="polishCurrentArticle(this)">美化格式</button>
     <button class="btn btn-sm" onclick="copyHtml()">复制 HTML</button>
     <button class="btn btn-sm" onclick="dlHtml()">↓ 下载</button>
     <button class="btn btn-green btn-sm" onclick="publishWordPress()">发布WP草稿</button>
@@ -635,12 +650,12 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
     </aside>
     <div class="workspace-canvas">
       <div class="tab-pane on" id="tp-outline"><div class="drawer-tools"><span class="drawer-translate-note">&#21482;&#29992;&#20110;&#26816;&#26597;&#30340;&#20013;&#25991;&#39044;&#35272;&#65292;&#19981;&#25913;&#21160;&#33521;&#25991;&#28304;&#25991;&#20214;</span><button class="btn btn-sm" id="outlineTranslateBtn" onclick="togglePreviewTranslation('outline')">&#32763;&#35793;&#25104;&#20013;&#25991;</button></div><div id="drawerOutline"></div></div>
-      <div class="tab-pane" id="tp-preview"><div class="drawer-tools"><span class="drawer-translate-note">&#21482;&#29992;&#20110;&#26816;&#26597;&#30340;&#20013;&#25991;&#39044;&#35272;&#65292;&#19981;&#25913;&#21160;&#33521;&#25991;&#28304;&#25991;&#20214;</span><button class="btn btn-sm" id="articleTranslateBtn" onclick="togglePreviewTranslation('article')">&#32763;&#35793;&#25104;&#20013;&#25991;</button></div><div class="article-render" id="drawerPreview"></div></div>
+      <div class="tab-pane" id="tp-preview"><div class="drawer-tools"><span class="drawer-translate-note" id="articleVariantStatus">基础版用于核对内容，美化版用于发布排版；中文预览不改源文件</span><button class="btn btn-sm" id="articleVariantBase" onclick="loadArticle(drawerSlug,'base')">基础版</button><button class="btn btn-sm" id="articleVariantPolished" onclick="loadArticle(drawerSlug,'polished')">美化版</button><button class="btn btn-sm btn-blue" id="articleVariantAuto" onclick="loadArticle(drawerSlug,'auto')">自动</button><button class="btn btn-sm" id="articleTranslateBtn" onclick="togglePreviewTranslation('article')">&#32763;&#35793;&#25104;&#20013;&#25991;</button></div><div class="article-render" id="drawerPreview"></div></div>
       <div class="tab-pane" id="tp-source"><div class="src-box" id="drawerSource"></div></div>
       <div class="tab-pane" id="tp-qa"><div id="drawerQa"></div></div>
       <div class="tab-pane" id="tp-publish"><div id="publishPack"></div></div>
       <div class="tab-pane" id="tp-images"><div id="imageConfig"></div></div>
-      <div class="tab-pane" id="tp-data"><div class="code-box" id="drawerData"></div></div>
+      <div class="tab-pane" id="tp-data"><div id="drawerData"></div></div>
     </div>
   </div>
 </div>
@@ -726,6 +741,7 @@ const MODEL_PRESETS = {
 };
 
 let currentSite = '';
+let siteList = [];
 let keywords = [];
 let selected = new Set();
 let taskFilter = 'all';
@@ -734,8 +750,10 @@ let configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{}
 let templates = { 'article-types':{}, 'prompt-sections':{}, 'qa-rules':{} };
 let drawerSlug = '';
 let drawerHtml = '';
+let drawerHtmlVariant = 'auto';
 let drawerPublishPack = null;
 let drawerImagePlan = null;
+let drawerDataPack = null;
 let previewTranslations = { outline:{ original:'', translated:'', showing:false }, article:{ original:'', translated:'', showing:false } };
 let setupFiles = [];
 let setupFilesSite = '';
@@ -759,18 +777,21 @@ async function loadSites(preferSite) {
   const res = await api('GET', '/sites');
   if (!res) return;
   const sites = res.sites || [];
+  siteList = sites;
   const sel = document.getElementById('siteSel');
   sel.innerHTML = sites.length
     ? sites.map(s => `<option value="${esc(s.siteId)}">${esc(s.displayName)}</option>`).join('')
     : '<option value="">未找到站点</option>';
   if (!sites.length) {
     resetSiteState('');
+    renderSiteDeletePanel();
     return;
   }
   const ids = new Set(sites.map(s => s.siteId));
   const next = ids.has(preferSite) ? preferSite : ids.has(currentSite) ? currentSite : sites[0].siteId;
   sel.value = next;
   await switchSite(next);
+  renderSiteDeletePanel();
 }
 
 function resetSiteState(siteId = '') {
@@ -781,6 +802,7 @@ function resetSiteState(siteId = '') {
   configs = { site:{}, author:{}, knowledge:{}, links:{}, 'style-reference':{}, projectInstructions:'' };
   drawerSlug = '';
   drawerHtml = '';
+  drawerHtmlVariant = 'auto';
   drawerPublishPack = null;
   drawerImagePlan = null;
   setupFiles = [];
@@ -803,6 +825,7 @@ async function switchSite(siteId) {
   if (sel) sel.value = siteId;
   await Promise.all([reloadKeywords(token), loadConfigs(token)]);
   if (token === siteLoadSeq) await loadSetupStatus(token);
+  if (token === siteLoadSeq) renderSiteDeletePanel();
 }
 
 async function reloadKeywords(token = siteLoadSeq) {
@@ -873,6 +896,7 @@ function switchPanel(name) {
 
 function openSiteManager() {
   renderCreateSiteFields();
+  renderSiteDeletePanel();
   document.getElementById('siteManagerModal')?.classList.add('open');
 }
 
@@ -889,6 +913,52 @@ function startInitialFileUploadFromModal() {
 function selectCreateType(type) {
   createSiteMode = type === 'b2b' ? 'b2b' : 'b2c';
   renderCreateSiteFields();
+}
+
+function renderSiteDeletePanel() {
+  const el = document.getElementById('siteDeletePanel');
+  if (!el) return;
+  if (!siteList.length || !currentSite) {
+    el.innerHTML = '<div class="hint">当前没有可删除的站点。</div>';
+    return;
+  }
+  const site = siteList.find(item => item.siteId === currentSite) || { siteId: currentSite, displayName: currentSite };
+  el.innerHTML = `
+    <div class="delete-site-row">
+      <div class="delete-site-meta">
+        <div>当前站点：<strong>${esc(site.displayName || site.siteId)}</strong> <code>${esc(site.siteId)}</code></div>
+        <div class="hint">删除后会从站点下拉框移除，并移动到 <code>site-recycle-bin/</code>，需要手动确认后才会执行。</div>
+      </div>
+      <button class="btn btn-red" onclick="deleteCurrentSite(this)">移入回收站</button>
+    </div>
+  `;
+}
+
+async function deleteCurrentSite(btn) {
+  const siteId = currentSite;
+  if (!siteId) return log('没有选中的站点，无法删除', 'err');
+  const site = siteList.find(item => item.siteId === siteId);
+  const label = site?.displayName && site.displayName !== siteId ? `${site.displayName} (${siteId})` : siteId;
+  if (!confirm(`第一重确认：确定将站点「${label}」移入回收站吗？\n\n这会从当前站点列表移除，但不会直接物理删除文件。`)) return;
+  const required = `DELETE ${siteId}`;
+  const typed = prompt(`第二重确认：请输入以下内容确认删除\n\n${required}`);
+  if (typed !== required) {
+    log(`已取消删除：确认文本不匹配，站点 ${siteId} 未被移动`, 'err');
+    return;
+  }
+  btn.disabled = true;
+  const res = await api('DELETE', `/sites/${encodeURIComponent(siteId)}`, {
+    confirmSiteId: siteId,
+    confirmText: required,
+    moveToRecycleBin: true,
+  });
+  btn.disabled = false;
+  if (!res) return;
+  closeDrawer();
+  resetSiteState('');
+  log(`站点 ${siteId} 已移入回收站：${res.recycleName || 'site-recycle-bin'}`, 'ok');
+  await loadSites();
+  renderSiteDeletePanel();
 }
 
 function renderCreateSiteFields() {
@@ -1196,6 +1266,62 @@ function runSelectedOutlines() { startBatch({ selectedOnly: true, mode: 'outline
 function runSelectedArticles() { startBatch({ selectedOnly: true, mode: 'article' }); }
 function retryFailed() { startBatch({ onlyFailed: true, mode: 'article' }); }
 
+async function polishCurrentArticle(btn) {
+  if (!drawerSlug) return log('请先打开一篇文章', 'err');
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = '美化中…'; }
+  const res = await api('POST', `/sites/${currentSite}/polish/${drawerSlug}`, getPolishApiConfig());
+  if (btn) { btn.disabled = false; btn.textContent = original || '美化格式'; }
+  if (!res) return;
+  drawerHtml = res.html || drawerHtml;
+  drawerHtmlVariant = 'polished';
+  previewTranslations.article.original = drawerHtml;
+  previewTranslations.article.translated = '';
+  previewTranslations.article.showing = false;
+  document.getElementById('drawerPreview').innerHTML = drawerHtml;
+  document.getElementById('drawerSource').textContent = drawerHtml;
+  setArticleVariantState('polished', 'polished');
+  setWorkspaceNavState('preview', '美化版');
+  setWorkspaceNavState('source', `${Math.round(drawerHtml.length / 1024)}KB`);
+  await loadQa(drawerSlug);
+  await loadPublishPack(drawerSlug);
+  await loadDataPack(drawerSlug);
+  log(`美化完成：${drawerSlug}`, 'ok');
+}
+
+async function polishSelectedArticles(btn) {
+  const rows = keywords.filter(row => selected.has(row.urlslug));
+  if (!rows.length) return log('请先勾选要美化的文章', 'err');
+  const apiConfig = getPolishApiConfig();
+  const original = btn?.textContent || '';
+  if (btn) { btn.disabled = true; btn.textContent = '美化中…'; }
+  const pw = document.getElementById('progWrap');
+  const pf = document.getElementById('progFill');
+  const pl = document.getElementById('progLbl');
+  pw.style.display = 'block'; pf.style.width = '0%'; pl.textContent = `美化 0 / ${rows.length}`;
+  let done = 0, ok = 0, failed = 0;
+  try {
+    await streamPost(`/sites/${currentSite}/polish`, { ...apiConfig, slugs: rows.map(r => r.urlslug) }, ev => {
+      const d = parseEvent(ev);
+      if (ev.type === 'polish-task-start') log(`开始美化：${d.slug}`, 'run');
+      if (ev.type === 'polish-task-done') {
+        done++;
+        if (d.status === 'done') { ok++; log(`美化完成：${d.slug}`, 'ok'); }
+        else { failed++; log(`美化失败：${d.slug} — ${d.error || '未知错误'}`, 'err'); }
+        pf.style.width = Math.round(done / rows.length * 100) + '%';
+        pl.textContent = `美化 ${done} / ${rows.length}`;
+      }
+    });
+  } catch (err) {
+    log(`批量美化出错：${err.message}`, 'err');
+  } finally {
+    pw.style.display = 'none';
+    if (btn) { btn.disabled = false; btn.textContent = original || '美化已选文章'; }
+    log(`批量美化完成：成功 ${ok}，失败 ${failed}`, failed ? 'err' : 'ok');
+    if (drawerSlug && selected.has(drawerSlug)) await loadArticle(drawerSlug, 'auto');
+  }
+}
+
 async function startBatch(opts) {
   const apiConfig = getApiConfig();
   const concurrency = parseInt(document.getElementById('conc').value, 10);
@@ -1300,8 +1426,10 @@ async function openDrawer(slug, keyword) {
   const row = keywords.find(k => k.urlslug === slug) || {};
   drawerSlug = slug;
   drawerHtml = '';
+  drawerHtmlVariant = 'auto';
   drawerPublishPack = null;
   drawerImagePlan = null;
+  drawerDataPack = null;
   previewTranslations = { outline:{ original:'', translated:'', showing:false }, article:{ original:'', translated:'', showing:false } };
   setTranslateButton('outline', false, false);
   setTranslateButton('article', false, false);
@@ -1314,7 +1442,7 @@ async function openDrawer(slug, keyword) {
   document.getElementById('drawerSource').textContent = '';
   document.getElementById('drawerQa').innerHTML = '<div class="hint">加载 QA…</div>';
   document.getElementById('publishPack').innerHTML = '<div class="hint">加载发布包…</div>';
-  document.getElementById('drawerData').textContent = '';
+  document.getElementById('drawerData').innerHTML = '';
   document.getElementById('drawer').classList.add('open');
   switchDrawerTab('outline');
   await Promise.all([
@@ -1370,24 +1498,56 @@ async function loadOutline(slug) {
   setWorkspaceNavState('outline', '已完成');
 }
 
-async function loadArticle(slug) {
-  const articleRes = await fetch(`/api/sites/${currentSite}/articles/${slug}`);
+async function loadArticle(slug, variant = 'auto') {
+  if (!slug) return;
+  const articleRes = await fetch(`/api/sites/${currentSite}/articles/${slug}?variant=${encodeURIComponent(variant)}`);
   if (!articleRes.ok) {
-    document.getElementById('drawerPreview').innerHTML = '<div class="hint">还没有文章。请先生成大纲，再点击 ▶ 生成文章。</div>';
-    document.getElementById('drawerSource').textContent = '';
-    setWorkspaceNavState('preview', '未生成');
-    setWorkspaceNavState('source', '未生成');
+    const label = variant === 'polished' ? '还没有美化版。请先点击「美化格式」。' : '还没有文章。请先生成大纲，再点击 ▶ 生成文章。';
+    document.getElementById('drawerPreview').innerHTML = `<div class="hint">${label}</div>`;
+    setArticleVariantState(variant, '');
+    if (variant !== 'polished') {
+      document.getElementById('drawerSource').textContent = '';
+      setWorkspaceNavState('preview', '未生成');
+      setWorkspaceNavState('source', '未生成');
+    }
     return;
   }
   drawerHtml = await articleRes.text();
+  const actualVariant = articleRes.headers.get('X-Content-Engine-Variant') || (variant === 'polished' ? 'polished' : variant === 'base' ? 'base' : 'auto');
+  drawerHtmlVariant = actualVariant;
   previewTranslations.article.original = drawerHtml;
   previewTranslations.article.translated = '';
   previewTranslations.article.showing = false;
   setTranslateButton('article', false, false);
   document.getElementById('drawerPreview').innerHTML = drawerHtml;
   document.getElementById('drawerSource').textContent = drawerHtml;
-  setWorkspaceNavState('preview', '已生成');
+  setArticleVariantState(variant, actualVariant);
+  const label = actualVariant === 'polished' ? '美化版' : actualVariant === 'base' ? '基础版' : '自动版';
+  setWorkspaceNavState('preview', variant === 'auto' && actualVariant !== 'auto' ? `自动→${label}` : label);
   setWorkspaceNavState('source', `${Math.round(drawerHtml.length / 1024)}KB`);
+}
+
+function setArticleVariantState(selected = 'auto', actual = '') {
+  const buttons = {
+    base: document.getElementById('articleVariantBase'),
+    polished: document.getElementById('articleVariantPolished'),
+    auto: document.getElementById('articleVariantAuto'),
+  };
+  Object.entries(buttons).forEach(([key, btn]) => {
+    if (btn) btn.classList.toggle('btn-blue', key === selected);
+  });
+  const status = document.getElementById('articleVariantStatus');
+  if (!status) return;
+  if (!actual) {
+    status.textContent = selected === 'polished'
+      ? '当前没有美化版；基础版仍保留，可先查看基础版或点击“美化格式”。'
+      : '基础版用于核对内容，美化版用于发布排版；中文预览不改源文件';
+    return;
+  }
+  const actualLabel = actual === 'polished' ? '美化版' : '基础版';
+  status.textContent = selected === 'auto'
+    ? `当前查看：${actualLabel}（自动选择）。基础版和美化版会分别保留。`
+    : `当前查看：${actualLabel}。切换不会覆盖另一版本。`;
 }
 
 async function loadQa(slug) {
@@ -1395,8 +1555,9 @@ async function loadQa(slug) {
   const res = await fetch(`/api/sites/${currentSite}/qa/${slug}`);
   if (!res.ok) { el.innerHTML = '<div class="hint">还没有 QA 报告。文章生成后会自动出现。</div>'; setWorkspaceNavState('qa', '未生成'); return; }
   const data = await res.json();
-  el.innerHTML = renderQa(data.qa);
-  setWorkspaceNavState('qa', data.qa?.score != null ? `${data.qa.score} 分` : '已生成');
+  el.innerHTML = `${data.qa ? renderQa(data.qa) : '<div class="hint">还没有内容 QA 报告。</div>'}${renderPolishQa(data.polishQa)}`;
+  const polishLabel = data.polishQa ? (data.polishQa.pass ? ' · 美化通过' : ' · 美化异常') : '';
+  setWorkspaceNavState('qa', data.qa?.score != null ? `${data.qa.score} 分${polishLabel}` : `已生成${polishLabel}`);
 }
 
 async function loadPublishPack(slug) {
@@ -1410,7 +1571,13 @@ async function loadPublishPack(slug) {
   const meta = res.metaDescription || '';
   const ctas = res.publishCtas || [];
   const b2b = res.b2bPublish || null;
+  const variantLabel = res.htmlVariant === 'polished' ? '美化版 HTML' : '基础版 HTML';
   el.innerHTML = `
+    <div class="pack-section">
+      <div class="pack-title">发布使用版本</div>
+      <span class="badge badge-${res.htmlVariant === 'polished' ? 'done' : 'queued'}">${variantLabel}</span>
+      <span class="hint">下载、ZIP 和 WordPress 发布会优先使用美化版；没有美化版时自动使用基础版。</span>
+    </div>
     <div class="pack-section">
       <div class="pack-title">SEO标题三选</div>
       <div class="seo-title-list">${seoTitles.map(t => `<button class="btn seo-title-btn" onclick="copyText('${escAttr(t)}')">${esc(t)}</button>`).join('')}</div>
@@ -1461,9 +1628,104 @@ async function loadPublishPack(slug) {
 async function loadDataPack(slug) {
   const el = document.getElementById('drawerData');
   const res = await fetch(`/api/sites/${currentSite}/data-pack/${slug}`);
-  if (!res.ok) { el.textContent = '数据包暂不可用'; setWorkspaceNavState('data', '不可用'); return; }
-  el.textContent = JSON.stringify(await res.json(), null, 2);
-  setWorkspaceNavState('data', '已加载');
+  if (!res.ok) { el.innerHTML = '<div class="hint">数据包暂不可用</div>'; setWorkspaceNavState('data', '不可用'); return; }
+  drawerDataPack = await res.json();
+  el.innerHTML = renderDataPack(drawerDataPack);
+  const hasPublish = !!drawerDataPack.publishPack;
+  const hasTrace = !!drawerDataPack.dataPack || !!drawerDataPack.outline || !!drawerDataPack.qa;
+  setWorkspaceNavState('data', hasPublish && hasTrace ? '发布+追踪' : hasPublish ? '发布包' : hasTrace ? '追踪包' : '空');
+}
+
+function renderDataPack(data = {}) {
+  const publish = data.publishPack || null;
+  const trace = data.dataPack || null;
+  const variants = data.htmlVariants || {};
+  const qa = data.qa || {};
+  const checks = publish?.publishChecklist || [];
+  const doneChecks = checks.filter(c => c.done).length;
+  const schema = publish?.schema || {};
+  const imagePlan = data.imagePlan || {};
+  const imageCount = Array.isArray(imagePlan.slots) ? imagePlan.slots.length : 0;
+  return `
+    <div class="pack-section">
+      <div class="pack-title">数据包总览</div>
+      <div class="hint">这里分成两类：发布交付包给运营发布使用；生成追踪包给排查提示词、QA 和生成过程使用。</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-sm" onclick="copyPublishPackJson()">复制发布包 JSON</button>
+        <button class="btn btn-sm" onclick="copyFullDataPackJson()">复制完整 JSON</button>
+        <button class="btn btn-sm" onclick="switchDrawerTab('publish')">查看发布包</button>
+      </div>
+    </div>
+    <div class="pack-section">
+      <div class="pack-title">HTML 版本</div>
+      <table class="mini-table"><thead><tr><th>版本</th><th>状态</th><th>文件</th><th>操作</th></tr></thead><tbody>
+        ${renderVariantRow('基础版', 'base', variants.base)}
+        ${renderVariantRow('美化版', 'polished', variants.polished)}
+        <tr><td>自动发布版</td><td colspan="3"><span class="badge ${variants.auto === 'polished' ? 'badge-done' : variants.auto === 'base' ? 'badge-queued' : 'badge-failed'}">${variants.auto === 'polished' ? '优先使用美化版' : variants.auto === 'base' ? '回退基础版' : '暂无文章'}</span></td></tr>
+      </tbody></table>
+    </div>
+    <div class="pack-section">
+      <div class="pack-title">发布交付包</div>
+      ${publish ? `<table class="mini-table"><tbody>
+        <tr><td style="width:180px">HTML 使用版本</td><td>${publish.htmlVariant === 'polished' ? '美化版' : '基础版'}</td></tr>
+        <tr><td>SEO 标题</td><td>${(publish.seoTitles || []).length} 个候选</td></tr>
+        <tr><td>Meta Description</td><td>${esc(publish.metaDescription || '—')} <span class="hint">(${String(publish.metaDescription || '').length}/155)</span></td></tr>
+        <tr><td>图片 ALT</td><td>${(publish.altTexts || []).length} 条</td></tr>
+        <tr><td>Schema</td><td>${esc(getSchemaType(schema))}</td></tr>
+        <tr><td>发布检查</td><td>${doneChecks} / ${checks.length} 通过</td></tr>
+        <tr><td>图片配置</td><td>${imageCount ? `${imageCount} 张规划图` : '未配置'}</td></tr>
+      </tbody></table>` : '<div class="hint">还没有发布交付包。文章生成后会自动出现。</div>'}
+    </div>
+    <div class="pack-section">
+      <div class="pack-title">生成追踪包</div>
+      ${trace || data.outline || data.qa ? `<table class="mini-table"><tbody>
+        <tr><td style="width:180px">关键词</td><td>${esc(data.keyword || trace?.keyword || '—')}</td></tr>
+        <tr><td>大纲</td><td>${data.outline ? '已生成' : '未生成'}</td></tr>
+        <tr><td>内容 QA</td><td>${qa.score != null ? `${qa.score} 分 · ${qa.pass ? '通过' : '未通过'}` : '未生成'}</td></tr>
+        <tr><td>美化 QA</td><td>${data.polishQa ? `${data.polishQa.pass ? '通过' : '异常'} · 保留率 ${data.polishQa.preserveRatio ?? '—'}` : '未生成'}</td></tr>
+        <tr><td>提示词追踪</td><td>${trace?.systemPrompt || trace?.userPrompt || trace?.prompt ? '已记录' : '未记录/旧数据包'}</td></tr>
+        <tr><td>关键词行</td><td>${data.keywordRow && Object.keys(data.keywordRow).length ? '已记录' : '未记录'}</td></tr>
+      </tbody></table>` : '<div class="hint">还没有生成追踪数据。</div>'}
+    </div>
+    <details class="pack-section">
+      <summary class="pack-title" style="cursor:pointer">完整 JSON（开发排查用）</summary>
+      <div class="code-box" style="margin-top:8px">${esc(JSON.stringify(data, null, 2))}</div>
+    </details>`;
+}
+
+function renderVariantRow(label, key, info = {}) {
+  const exists = !!info.exists;
+  return `<tr>
+    <td>${esc(label)}</td>
+    <td><span class="badge ${exists ? 'badge-done' : 'badge-queued'}">${exists ? '已保存' : '不存在'}</span></td>
+    <td>${exists ? `${esc(info.file || '')} · ${formatBytes(info.bytes || 0)}` : '—'}</td>
+    <td>${exists ? `<button class="btn btn-sm" onclick="loadArticle(drawerSlug,'${key}');switchDrawerTab('preview')">查看${esc(label)}</button>` : '<span class="hint">—</span>'}</td>
+  </tr>`;
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes || 0);
+  if (n > 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + 'MB';
+  if (n > 1024) return Math.round(n / 1024) + 'KB';
+  return n + 'B';
+}
+
+function getSchemaType(schema = {}) {
+  const type = schema['@type'] || schema.type;
+  if (Array.isArray(type)) return type.join(', ');
+  if (type) return type;
+  if (Array.isArray(schema['@graph'])) return schema['@graph'].map(item => item['@type']).filter(Boolean).join(', ') || '—';
+  return Object.keys(schema).length ? 'JSON-LD' : '—';
+}
+
+function copyPublishPackJson() {
+  if (!drawerDataPack?.publishPack) return log('当前没有发布包可复制', 'err');
+  copyText(JSON.stringify(drawerDataPack.publishPack, null, 2));
+}
+
+function copyFullDataPackJson() {
+  if (!drawerDataPack) return log('当前没有数据包可复制', 'err');
+  copyText(JSON.stringify(drawerDataPack, null, 2));
 }
 
 function renderOutline(outline = {}) {
@@ -1591,6 +1853,22 @@ function renderQa(qa = {}) {
   ${coverage}
   <div class="qa-wrap">${scoreRows}</div>
   <div class="qa-fail-list">${hard || ''}${warns || ''}</div>`;
+}
+
+function renderPolishQa(polishQa) {
+  if (!polishQa) {
+    return `<div class="pack-section">
+      <div class="pack-title">HTML 美化检查</div>
+      <div class="hint">还没有美化版。点击「美化格式」后会显示结构检查结果。</div>
+    </div>`;
+  }
+  const issues = (polishQa.issues || []).map(item => `<div class="qa-fail-item hard">✕ ${esc(item)}</div>`).join('');
+  return `<div class="pack-section">
+    <div class="pack-title">HTML 美化检查</div>
+    <span class="badge ${polishQa.pass ? 'badge-done' : 'badge-failed'}">${polishQa.pass ? '通过' : '异常'}</span>
+    <span class="hint">基础 ${polishQa.baseWordCount || 0} words / 美化 ${polishQa.polishedWordCount || 0} words · 链接 ${polishQa.polishedLinkCount || 0}/${polishQa.baseLinkCount || 0}</span>
+    ${issues ? `<div class="qa-fail-list" style="margin-top:8px">${issues}</div>` : '<div class="hint" style="margin-top:8px">未发现 H1、链接、内容保留或危险标签问题。</div>'}
+  </div>`;
 }
 
 function renderQaKeywordCoverage(coverage) {
@@ -2113,12 +2391,12 @@ function renderLinksConfig() {
 function renderStyleReferenceConfig() {
   const sr = configs['style-reference'] || {};
   document.getElementById('config-style-reference').innerHTML = `<div class="config-card">
-    <div class="card-head"><span class="card-title">样式参考总说明 + 参考 HTML</span><span class="hint">上半部分写使用说明，下半部分可粘贴目标站文章参考 HTML。生成时优先读取这里。</span></div>
+    <div class="card-head"><span class="card-title">样式参考</span><span class="hint">只供“美化格式”模块使用；基础文章生成不受这里强干扰。</span></div>
     <div class="form-field span-all">
-      <label>style-reference brief</label>
-      <textarea id="sr_styleBrief" style="min-height:560px;font-family:'SF Mono','Consolas',monospace;font-size:12px;line-height:1.6">${esc(styleReferenceToText(sr))}</textarea>
+      <label>参考样式说明 / 参考 HTML</label>
+      <textarea id="sr_styleBrief" style="min-height:320px;font-family:'SF Mono','Consolas',monospace;font-size:12px;line-height:1.6">${esc(styleReferenceToText(sr))}</textarea>
     </div>
-    <div class="hint" style="margin:8px 0 12px">建议包含：文章根 class、标题/段落节奏、FAQ details/summary 手风琴、引用/提示/警告块、表格、列表、CTA、颜色气质，以及一段可参考的文章 HTML。程序会要求模型提取结构和 class，不复制完整页面。</div>
+    <div class="hint" style="margin:8px 0 12px">建议填写：文章 root class、H1/H2/H3 层级、FAQ 手风琴、引用/提示/警告块、表格、列表、CTA、颜色气质、禁止事项和少量参考 HTML。不要贴整页源码、导航、页脚或无关营销模块。</div>
     <button class="btn btn-green btn-sm" onclick="saveStyleReferenceConfig(this)">保存样式参考</button>
   </div>`;
 }
@@ -2279,6 +2557,7 @@ function collectStyleReferenceConfig() {
   return {
     ...configs['style-reference'],
     styleBrief: valRaw('sr_styleBrief'),
+    polishOnly: true,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -2809,6 +3088,16 @@ function resetGeminiSettings() {
 function getGeminiTaskConfig() {
   const saved = JSON.parse(localStorage.getItem('contentEngineGeminiSettings') || 'null') || {};
   return { provider: 'gemini', apiKey: val('g_apiKey') || saved.apiKey || '', model: val('g_model') || saved.model || 'gemini-3.1-flash-lite', endpoint: val('g_endpoint') || saved.endpoint || '', maxTokens: val('g_maxTokens') || saved.maxTokens || '4096', timeoutMs: val('g_timeoutMs') || saved.timeoutMs || '120000' };
+}
+
+function getPolishApiConfig() {
+  const cfg = getGeminiTaskConfig();
+  return {
+    ...cfg,
+    provider: 'gemini',
+    maxTokens: String(Math.max(Number(cfg.maxTokens) || 0, 12000)),
+    timeoutMs: String(Math.max(Number(cfg.timeoutMs) || 0, 240000)),
+  };
 }
 
 function applyModelPreset(name) {
