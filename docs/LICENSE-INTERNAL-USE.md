@@ -1,6 +1,6 @@
 # Internal Use License
 
-Content Engine Lite v0.1 is provided for non-exclusive internal use.
+Content Engine Lite is provided for non-exclusive internal use.
 
 Unless separately agreed in writing, the recipient may:
 

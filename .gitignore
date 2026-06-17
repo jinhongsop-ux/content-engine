@@ -4,6 +4,7 @@ server.err.log
 .env
 .env.*
 release/
+dist/
 logs/
 runtime/
 site-recycle-bin/

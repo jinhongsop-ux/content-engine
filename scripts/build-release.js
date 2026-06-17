@@ -4,11 +4,13 @@ import archiver from 'archiver';
 
 const root = process.cwd();
 const releaseDir = path.join(root, 'release');
-const packageName = 'Content-Engine-Lite-v0.1.1.zip';
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const packageName = `Content-Engine-Lite-v${pkg.version}.zip`;
 const outputPath = path.join(releaseDir, packageName);
 
 const includePaths = [
   'main.js',
+  'desktop',
   'start-windows.bat',
   'stop-windows.bat',
   'package.json',
@@ -35,6 +37,8 @@ const blockedFragments = [
   '/logs/',
   '/runtime/',
   '/outputs/',
+  '/dist/',
+  '/site-recycle-bin/',
 ];
 
 const blockedNames = new Set([

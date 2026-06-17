@@ -1,18 +1,31 @@
-# Usage
+# 使用流程
 
-## 1. Start the App
+## 1. 启动程序
 
-Run `npm start`, then open `http://127.0.0.1:3000`.
+双击 `start-windows.bat`，或运行：
 
-## 2. Choose or Create a Site
+```powershell
+npm start
+```
 
-Use the site selector in the top-left area. Use `站点管理` to create a new local site shell.
+打开 `http://127.0.0.1:3000`。
 
-## 3. Import Site Data
+## 2. 创建或选择站点
 
-Open `导入中心`.
+左上角选择已有站点，或点击“站点管理”创建新站点。
 
-Upload a prepared data pack or individual files:
+新增站点时先选择：
+
+- C端 / DTC 内容站：适合品牌人设、产品体验、购买决策和内容种草。
+- B端 / 外贸 / 制造站：适合供应商可信度、产品参数、行业应用、采购问题和 RFQ 转化。
+
+两种站点会生成不同的默认资料结构、关键词字段和教程路径。
+
+## 3. 准备并导入资料
+
+进入“导入中心”，上传站点资料包或单独文件。
+
+标准文件：
 
 - `site.json`
 - `author.json`
@@ -22,40 +35,70 @@ Upload a prepared data pack or individual files:
 - `project-instructions.md`
 - `keywords.csv`
 
-Review AI recognition results and only check the files that should be written into the current site.
+导入前先确认当前站点，避免资料写错站点。AI 识别结果需要人工勾选后才会写入。
 
-## 4. Review Site Library
+## 4. 完善站点资料库
 
-Open `站点资料库` and review:
+进入“站点资料库”检查：
 
-- Brand settings.
-- Author profile.
-- Category knowledge.
-- Link library.
-- Style reference.
-- Project instructions.
+- 品牌/公司设置。
+- 作者/团队档案。
+- 品类/行业知识。
+- 内链库。
+- 样式参考。
+- Project 指令。
 
-## 5. Generate Content
+Project 指令用于写作 SOP、禁用表达、合规边界和输出要求；它不应该替代结构化的 JSON 数据。
 
-Open `内容任务`.
+## 5. 查看使用教程
 
-Recommended workflow:
+进入“使用教程”：
 
-1. Select one or more keyword rows.
-2. Generate selected outlines.
-3. Review outlines in the article workbench.
-4. Generate selected articles.
-5. Review HTML, QA, publish pack, and images.
+- C 端站点展示 D1-D8 内容站流程。
+- B 端站点展示 D0-D8 外贸/制造站流程。
 
-## 6. Export or Publish
+教程会提示每一步对应哪些资料文件、在程序里进入哪个模块。
 
-Use:
+## 6. 执行内容任务
 
-- Article HTML download.
-- Article ZIP download.
-- Metadata table download.
-- WordPress draft publishing after WordPress settings are configured.
+进入“内容任务”：
 
-## Editorial Rule
+1. 筛选或搜索关键词。
+2. 勾选要处理的行。
+3. 先生成已选大纲。
+4. 打开文章工作台检查大纲。
+5. 生成已选文章。
+6. 检查正文、HTML、QA 注意点、发布包、图片和数据包。
+7. 需要时执行 HTML 美化。
+8. 确认无问题后导出或发布为 WordPress 草稿。
 
-Do not publish generated content without human review.
+## 7. 图片配置
+
+在文章工作台打开“图片”：
+
+- 查看推荐图片槽位。
+- 上传图片。
+- 使用 Gemini 辅助模型生成 ALT。
+- 将图片按推荐位置插入正文。
+
+## 8. 发布与导出
+
+可使用：
+
+- 单篇 HTML 下载。
+- 文章 ZIP 下载。
+- 元数据表格下载。
+- WordPress 草稿发布。
+- 数据包查看。
+
+## 9. 人工审核规则
+
+不要直接发布未经审核的内容。至少检查：
+
+- 事实和品牌口径。
+- 内链是否真实。
+- 禁用表达是否出现。
+- QA 注意点。
+- 图片 ALT。
+- SEO 标题和 Meta Description。
+- WordPress 草稿格式。

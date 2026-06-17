@@ -180,6 +180,22 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
 .setup-drop.dragover { background:var(--blue-bg); border-color:var(--blue); color:var(--blue); }
 .setup-drop strong { display:block; font-size:13px; color:var(--text); margin-bottom:5px; }
 
+.guide-hero { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(260px,.65fr); gap:12px; margin-bottom:12px; }
+.guide-title { font-size:18px; font-weight:700; margin-bottom:8px; color:var(--text); }
+.guide-copy { font-size:13px; line-height:1.75; color:var(--text2); }
+.guide-flow { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; }
+.guide-step { background:var(--bg); border:.5px solid var(--border); border-radius:var(--r-lg); padding:12px; display:flex; flex-direction:column; gap:8px; min-height:190px; }
+.guide-step-head { display:flex; align-items:center; gap:8px; }
+.guide-step-code { font-size:11px; font-weight:700; color:var(--blue); background:var(--blue-bg); border-radius:999px; padding:3px 8px; }
+.guide-step-title { font-size:13px; font-weight:700; color:var(--text); }
+.guide-step p { font-size:12px; line-height:1.65; color:var(--text2); }
+.guide-file-list { display:flex; flex-wrap:wrap; gap:5px; }
+.guide-file-list code { font-size:10px; color:var(--text2); background:var(--bg2); border:.5px solid var(--border); border-radius:999px; padding:2px 7px; }
+.guide-actions { margin-top:auto; display:flex; flex-wrap:wrap; gap:6px; }
+.guide-checklist { display:grid; gap:7px; font-size:12px; color:var(--text2); line-height:1.5; }
+.guide-checklist div { padding:7px 8px; background:var(--bg2); border-radius:var(--r); }
+@media (max-width:900px) { .guide-hero { grid-template-columns:1fr; } }
+
 .drawer { position:fixed; left:50%; right:auto; top:60px; bottom:20px; width:min(1280px,calc(100vw - 40px)); background:var(--bg); border:.5px solid var(--border); border-radius:var(--r-lg); display:flex; flex-direction:column; transform:translate(-50%,calc(100% + 90px)); transition:transform .22s ease; z-index:200; box-shadow:0 18px 50px rgba(0,0,0,.22); overflow:hidden; }
 .drawer.open { transform:translate(-50%,0); }
 .drawer-head { display:flex; align-items:center; gap:8px; padding:11px 14px; border-bottom:.5px solid var(--border); background:var(--bg2); flex-shrink:0; }
@@ -290,6 +306,7 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
     <button class="nav-tab on" data-panel="keywords" onclick="switchPanel('keywords')">内容任务</button>
     <button class="nav-tab" data-panel="config" onclick="switchPanel('config')">站点资料库</button>
     <button class="nav-tab" data-panel="files" onclick="switchPanel('files')">导入中心</button>
+    <button class="nav-tab" data-panel="guide" onclick="switchPanel('guide')">使用教程</button>
     <button class="nav-tab" data-panel="settings" onclick="switchPanel('settings')">设置</button>
   </div>
   <span class="sp"></span>
@@ -549,6 +566,15 @@ summary { cursor:pointer; font-weight:600; color:var(--text); }
       </div>
     </section>
 
+    <section class="panel" id="panel-guide">
+      <div class="section-toolbar">
+        <span class="toolbar-title" id="guideTitle">使用教程 — 按当前站点类型显示执行路径</span>
+        <button class="btn btn-sm" onclick="switchPanel('files')">打开导入中心</button>
+        <button class="btn btn-sm" onclick="switchPanel('config')">打开资料库</button>
+      </div>
+      <div class="scroll-panel" id="guideBody"></div>
+    </section>
+
     <section class="panel" id="panel-settings">
       <div class="section-toolbar">
         <span class="toolbar-title">设置 — 文章模型、Gemini、WordPress 与默认策略</span>
@@ -692,6 +718,39 @@ const SETUP_REQUIRED_ZH = {
   'project-instructions.md': ['Project 指令', '品牌 SOP、写作规范、合规边界、输出格式'],
   'keywords.csv': ['关键词规划表', '关键词、slug、文章类型、字数、方向、内链目标'],
 };
+const GUIDE_FLOWS = {
+  b2c: {
+    name: 'C端 / DTC 内容站教程',
+    brief: '适用于独立站、电商、消费品和品牌博客。核心目标是把品牌资料、作者故事、品类知识、关键词规划、内链库和样式参考变成可人工审核的文章生产流程。',
+    checklist: ['先完成站点资料库，再导入关键词。', '先生成大纲，再生成文章。', '文章完成后检查 QA、图片、发布包，再发布 WordPress 草稿。', 'Project 指令用于放品牌 SOP 和不可违背的写作边界。'],
+    stages: [
+      { code:'D1', title:'品类调研', goal:'整理品类认知、术语、权威事实、FAQ 和合规边界。', files:['knowledge.json'], actions:[['填写品类知识','config','knowledge'],['上传资料','files']] },
+      { code:'D2', title:'品牌与作者建设', goal:'写入品牌定位、受众、语气、创始人/作者背景和一手经验故事库。', files:['site.json','author.json'], actions:[['品牌设置','config','site'],['作者档案','config','author']] },
+      { code:'D3', title:'关键词规划', goal:'导入关键词、slug、文章类型、字数、方向、内链目标和关键词蚕食提示。', files:['keywords.csv'], actions:[['内容任务','keywords'],['导入关键词','files']] },
+      { code:'D4', title:'产品与转化素材', goal:'把产品分类、卖点、购买顾虑、退换货和信任页面沉淀到知识库与内链库。', files:['knowledge.json','links.json'], actions:[['品类知识','config','knowledge'],['内链库','config','links']] },
+      { code:'D5', title:'专题页与样式参考', goal:'补充专题页、分类页、产品页、已发布博客和文章 HTML 排版风格。', files:['links.json','style-reference.json'], actions:[['内链库','config','links'],['样式参考','config','style-reference']] },
+      { code:'D6', title:'信任建设', goal:'沉淀 About、FAQ、政策、售后、作者背书等信任资产，作为内容引用和内链来源。', files:['site.json','links.json','project-instructions.md'], actions:[['Project 指令','config','project-instructions'],['站点资料库','config']] },
+      { code:'D7', title:'内容生产', goal:'按关键词先生成大纲，再生成文章，随后检查 QA、图片配置、发布包和 HTML 美化版。', files:['outputs/','meta-table.xlsx'], actions:[['生成文章','keywords'],['打开工作台','keywords']] },
+      { code:'D8', title:'发布与复盘', goal:'导出文章 ZIP、元数据表格或发布 WordPress 草稿，再结合 GSC/搜索表现做下一轮优化。', files:['outputs/','meta-table.xlsx'], actions:[['导出元数据','keywords'],['WordPress 设置','settings','wordpress']] },
+    ],
+  },
+  b2b: {
+    name: 'B端 / 外贸 / 制造站教程',
+    brief: '适用于工厂、供应商、B2B 产品站和外贸询盘站。核心目标是把公司可信度、产品能力、工艺参数、行业应用、案例证据和采购问题组织成能服务 RFQ 的内容流程。',
+    checklist: ['先明确公司能力和不可编造边界。', '资料库必须包含产品线、工艺、质量控制、认证和采购 FAQ。', '关键词表建议填写采购角色、漏斗阶段、应用场景、CTA 和证据需求。', '文章必须导向 RFQ、发送图纸、下载目录或技术咨询，不做消费品式夸张营销。'],
+    stages: [
+      { code:'D0', title:'商业定位与技术底座', goal:'创建 B端站点，明确业务模式、目标市场、采购角色、转化目标和不可编造声明。', files:['site.json'], actions:[['站点管理','site-manager'],['公司设置','config','site']] },
+      { code:'D1', title:'行业与采购认知', goal:'整理产品线、材料、规格、工艺、应用场景、采购 FAQ 和技术 FAQ。', files:['knowledge.json'], actions:[['产品与行业知识','config','knowledge'],['上传资料','files']] },
+      { code:'D2', title:'供应商可信度', goal:'写入团队/公司背景、工厂经验、质检经验、出口经验、项目案例和证据边界。', files:['author.json','site.json'], actions:[['团队档案','config','author'],['公司设置','config','site']] },
+      { code:'D3', title:'B2B SEO 与页面架构', goal:'导入关键词并标注 buyer role、funnel stage、industry、application、CTA、evidence needed。', files:['keywords.csv'], actions:[['内容任务','keywords'],['导入关键词','files']] },
+      { code:'D4', title:'产品线与能力页面', goal:'补齐产品页、能力页、资料下载页、样品/RFQ/Contact 转化页，不按 C端选品上架逻辑处理。', files:['links.json','knowledge.json'], actions:[['产品/解决方案内链库','config','links'],['产品与行业知识','config','knowledge']] },
+      { code:'D5', title:'Solution Hub', goal:'建立解决方案页、行业页、应用场景页、案例页和认证页，让博客自然导向采购决策。', files:['links.json','style-reference.json'], actions:[['内链库','config','links'],['样式参考','config','style-reference']] },
+      { code:'D6', title:'信任与转化系统', goal:'沉淀 Factory、QC、Certification、Process、Contact/RFQ 等信任资产，禁止编造认证、产能、交期、MOQ 和客户名。', files:['site.json','knowledge.json','project-instructions.md'], actions:[['B2B 写作指令','config','project-instructions'],['默认策略','settings','strategy']] },
+      { code:'D7', title:'B2B 内容工厂', goal:'生成采购辅助型文章：供应商选择、材料对比、规格说明、工艺说明、应用方案、采购 FAQ 和案例文章。', files:['outputs/','meta-table.xlsx'], actions:[['生成文章','keywords'],['QA 检查','keywords']] },
+      { code:'D8', title:'GSC 与线索复盘', goal:'发布草稿后结合 GSC、询盘质量和销售反馈优化关键词、页面承接和 CTA。', files:['meta-table.xlsx','keywords.csv'], actions:[['导出元数据','keywords'],['WordPress 设置','settings','wordpress']] },
+    ],
+  },
+};
 const DEFAULT_ARTICLE_TYPES = {
   'price-guide': { wordRange: [800, 1200], schemaType: 'Article', openingTemplates: ['Answer the price question immediately, then explain context and tradeoffs.'] },
   'buying-guide': { wordRange: [1000, 1600], schemaType: 'Article', openingTemplates: ['Start with the buying decision and the most important selection criteria.'] },
@@ -811,6 +870,7 @@ function resetSiteState(siteId = '') {
   renderTable();
   renderStats();
   renderConfig();
+  renderGuide();
   renderSetupPreview();
   document.getElementById('configSiteId').textContent = siteId || '?';
   document.getElementById('tableTitle').textContent = siteId ? siteId + ' — 关键词规划表' : '关键词规划表';
@@ -855,6 +915,7 @@ async function loadConfigs(token = siteLoadSeq) {
   configs = nextConfigs;
   document.getElementById('configSiteId').textContent = currentSite;
   renderConfig();
+  renderGuide();
 }
 
 async function loadTemplates() {
@@ -892,6 +953,7 @@ function switchPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
   document.getElementById('panel-' + name)?.classList.add('on');
   if (name === 'files' && currentSite) loadSetupStatus();
+  if (name === 'guide') renderGuide();
 }
 
 function openSiteManager() {
@@ -1681,8 +1743,8 @@ function renderDataPack(data = {}) {
       ${trace || data.outline || data.qa ? `<table class="mini-table"><tbody>
         <tr><td style="width:180px">关键词</td><td>${esc(data.keyword || trace?.keyword || '—')}</td></tr>
         <tr><td>大纲</td><td>${data.outline ? '已生成' : '未生成'}</td></tr>
-        <tr><td>内容 QA</td><td>${qa.score != null ? `${qa.score} 分 · ${qa.pass ? '通过' : '未通过'}` : '未生成'}</td></tr>
-        <tr><td>美化 QA</td><td>${data.polishQa ? `${data.polishQa.pass ? '通过' : '异常'} · 保留率 ${data.polishQa.preserveRatio ?? '—'}` : '未生成'}</td></tr>
+        <tr><td>内容 QA</td><td>${qa.score != null ? `${qa.score} 分 · ${qa.pass ? '暂无高优先注意点' : '有发布前注意点'}` : '未生成'}</td></tr>
+        <tr><td>美化 QA</td><td>${data.polishQa ? `${data.polishQa.pass ? '可用' : '需复核'} · 保留率 ${data.polishQa.preserveRatio ?? '—'}` : '未生成'}</td></tr>
         <tr><td>提示词追踪</td><td>${trace?.systemPrompt || trace?.userPrompt || trace?.prompt ? '已记录' : '未记录/旧数据包'}</td></tr>
         <tr><td>关键词行</td><td>${data.keywordRow && Object.keys(data.keywordRow).length ? '已记录' : '未记录'}</td></tr>
       </tbody></table>` : '<div class="hint">还没有生成追踪数据。</div>'}
@@ -1749,7 +1811,7 @@ function renderOutline(outline = {}) {
   </div>`).join('')}</div>
   ${(outline.faq || []).length ? `<div class="pack-section"><div class="pack-title">FAQ规划</div>${outline.faq.map(f => `<div class="check-row"><span>Q: ${esc(f.question || '')}</span></div>`).join('')}</div>` : ''}
   ${outline.cta ? `<div class="pack-section"><div class="pack-title">CTA</div><div>${esc(outline.cta)}</div></div>` : ''}
-  ${(outline.qaRisks || []).length ? `<div class="pack-section"><div class="pack-title">QA风险</div>${outline.qaRisks.map(r => `<div class="qa-fail-item warn">⚠ ${esc(r)}</div>`).join('')}</div>` : ''}`;
+  ${(outline.qaRisks || []).length ? `<div class="pack-section"><div class="pack-title">发布前注意点</div>${outline.qaRisks.map(r => `<div class="qa-fail-item warn">建议复核：${esc(r)}</div>`).join('')}</div>` : ''}`;
 }
 
 function renderOutlineKeywordCoverage(plan = {}) {
@@ -1843,12 +1905,12 @@ function renderQa(qa = {}) {
     const pct = Math.round((scores[key] || 0) * 100);
     return `<div class="qa-item"><span class="qa-label">${label}</span><div class="qa-bar-wrap"><div class="qa-bar-fill" style="width:${pct}%"></div></div><span class="qa-val">${pct}</span></div>`;
   }).join('');
-  const hard = (qa.hardFails || []).map(f => `<div class="qa-fail-item hard">✕ ${esc(f.message || f.id || f)}</div>`).join('');
-  const warns = (qa.warnings || []).map(w => `<div class="qa-fail-item warn">⚠ ${esc(w.message || w.id || w)}</div>`).join('');
+  const hard = (qa.hardFails || []).map(f => `<div class="qa-fail-item hard">高优先级注意：${esc(f.message || f.id || f)}</div>`).join('');
+  const warns = (qa.warnings || []).map(w => `<div class="qa-fail-item warn">发布前建议：${esc(w.message || w.id || w)}</div>`).join('');
   const coverage = renderQaKeywordCoverage(qa.keywordCoverage);
   return `<div class="pack-section">
     <div class="pack-title">综合质检</div>
-    <span class="qa-score-big">${qa.score ?? '—'}</span><span class="hint"> / 100 · ${qa.pass ? '通过' : '未通过'} · ${qa.wordCount || 0} words · 内链 ${qa.internalLinkCount || 0}</span>
+    <span class="qa-score-big">${qa.score ?? '—'}</span><span class="hint"> / 100 · ${qa.pass ? '暂无高优先级注意点' : '有发布前注意点'} · ${qa.wordCount || 0} words · 内链 ${qa.internalLinkCount || 0}</span>
   </div>
   ${coverage}
   <div class="qa-wrap">${scoreRows}</div>
@@ -1862,10 +1924,10 @@ function renderPolishQa(polishQa) {
       <div class="hint">还没有美化版。点击「美化格式」后会显示结构检查结果。</div>
     </div>`;
   }
-  const issues = (polishQa.issues || []).map(item => `<div class="qa-fail-item hard">✕ ${esc(item)}</div>`).join('');
+  const issues = (polishQa.issues || []).map(item => `<div class="qa-fail-item hard">需要复核：${esc(item)}</div>`).join('');
   return `<div class="pack-section">
     <div class="pack-title">HTML 美化检查</div>
-    <span class="badge ${polishQa.pass ? 'badge-done' : 'badge-failed'}">${polishQa.pass ? '通过' : '异常'}</span>
+    <span class="badge ${polishQa.pass ? 'badge-done' : 'badge-outlined'}">${polishQa.pass ? '可用' : '需复核'}</span>
     <span class="hint">基础 ${polishQa.baseWordCount || 0} words / 美化 ${polishQa.polishedWordCount || 0} words · 链接 ${polishQa.polishedLinkCount || 0}/${polishQa.baseLinkCount || 0}</span>
     ${issues ? `<div class="qa-fail-list" style="margin-top:8px">${issues}</div>` : '<div class="hint" style="margin-top:8px">未发现 H1、链接、内容保留或危险标签问题。</div>'}
   </div>`;
@@ -1883,7 +1945,7 @@ function renderQaKeywordCoverage(coverage) {
     <div class="pack-title">关键词覆盖检查</div>
     <div class="hint">必需覆盖：${coverage.requiredCovered || 0} / ${coverage.requiredTotal || 0} · 可选覆盖：${coverage.optionalCovered || 0} / ${coverage.optionalTotal || 0}</div>
     <table class="mini-table" style="margin-top:8px"><thead><tr><th>类型</th><th>关键词</th><th>状态</th></tr></thead><tbody>
-      ${rows.map(item => `<tr><td>${esc(item.label)}</td><td>${esc(item.term)}</td><td><span class="badge ${item.found ? 'badge-done' : item.required ? 'badge-failed' : 'badge-queued'}">${item.found ? '已覆盖' : item.required ? '缺失' : '可选未用'}</span></td></tr>`).join('')}
+      ${rows.map(item => `<tr><td>${esc(item.label)}</td><td>${esc(item.term)}</td><td><span class="badge ${item.found ? 'badge-done' : item.required ? 'badge-outlined' : 'badge-queued'}">${item.found ? '已覆盖' : item.required ? '建议补充' : '可选未用'}</span></td></tr>`).join('')}
     </tbody></table>
   </div>`;
 }
@@ -2166,6 +2228,66 @@ function renderConfig() {
   renderStyleReferenceConfig();
   renderProjectInstructionsConfig();
   renderSettingsWordPress();
+}
+
+function renderGuide() {
+  const el = document.getElementById('guideBody');
+  if (!el) return;
+  const type = currentSiteType();
+  const flow = GUIDE_FLOWS[type] || GUIDE_FLOWS.b2c;
+  const title = document.getElementById('guideTitle');
+  if (title) title.textContent = `使用教程 — ${flow.name}`;
+  const done = keywords.filter(k => k.status === 'done').length;
+  const outlined = keywords.filter(k => k.status === 'outlined').length;
+  const failed = keywords.filter(k => k.status === 'failed').length;
+  el.innerHTML = `
+    <div class="guide-hero">
+      <div class="config-card">
+        <div class="guide-title">${esc(flow.name)}</div>
+        <div class="guide-copy">${esc(flow.brief)}</div>
+        <div class="form-actions" style="margin-top:12px">
+          <button class="btn btn-blue" onclick="runGuideAction('files')">导入资料</button>
+          <button class="btn" onclick="runGuideAction('config')">完善资料库</button>
+          <button class="btn" onclick="runGuideAction('keywords')">进入内容任务</button>
+          <button class="btn" onclick="runGuideAction('settings','strategy')">查看默认策略</button>
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="card-head"><span class="card-title">当前站点状态</span><span class="badge ${type === 'b2b' ? 'badge-outlined' : 'badge-done'}">${type === 'b2b' ? 'B端' : 'C端'}</span></div>
+        <div class="guide-checklist">
+          <div>站点：<strong>${esc(currentSite || '未选择')}</strong></div>
+          <div>任务：${keywords.length} 条 · 大纲 ${outlined} · 文章 ${done} · 运行异常 ${failed}</div>
+          ${flow.checklist.map(item => `<div>${esc(item)}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="guide-flow">
+      ${flow.stages.map(stage => renderGuideStage(stage)).join('')}
+    </div>
+  `;
+}
+
+function renderGuideStage(stage) {
+  return `<div class="guide-step">
+    <div class="guide-step-head"><span class="guide-step-code">${esc(stage.code)}</span><span class="guide-step-title">${esc(stage.title)}</span></div>
+    <p>${esc(stage.goal)}</p>
+    <div class="guide-file-list">${(stage.files || []).map(file => `<code>${esc(file)}</code>`).join('')}</div>
+    <div class="guide-actions">${(stage.actions || []).map(([label, panel, subtab]) => `<button class="btn btn-sm" onclick="runGuideAction('${escAttr(panel)}','${escAttr(subtab || '')}')">${esc(label)}</button>`).join('')}</div>
+  </div>`;
+}
+
+function runGuideAction(panel, subtab = '') {
+  if (panel === 'site-manager') {
+    openSiteManager();
+    return;
+  }
+  switchPanel(panel || 'keywords');
+  if (subtab) {
+    setTimeout(() => {
+      if (panel === 'config') switchSubtabByName('config', subtab);
+      else switchSubtab(panel, subtab);
+    }, 0);
+  }
 }
 
 function currentSiteType() {
@@ -2730,14 +2852,14 @@ async function savePromptSections(btn) {
 function renderQaRules() {
   const q = templates['qa-rules'] || {};
   document.getElementById('logic-qa-rules').innerHTML = `
-    <div class="config-card"><div class="card-head"><span class="card-title">硬性拦截（Hard Fail）</span><button class="btn btn-sm" onclick="addQaRow('hardFail')">＋ 增加规则</button></div>${renderQaTable('hardFail', q.hardFail || [])}</div>
-    <div class="config-card"><div class="card-head"><span class="card-title">警告（Warning）</span><button class="btn btn-sm" onclick="addQaRow('warnings')">＋ 增加规则</button></div>${renderQaTable('warnings', q.warnings || [])}</div>
+    <div class="config-card"><div class="card-head"><span class="card-title">高优先级注意点</span><button class="btn btn-sm" onclick="addQaRow('hardFail')">＋ 增加规则</button></div><div class="hint" style="margin-bottom:8px">底层仍保存为 hardFail，用于提醒人工复核；界面不再把文章简单标记为不可用。</div>${renderQaTable('hardFail', q.hardFail || [])}</div>
+    <div class="config-card"><div class="card-head"><span class="card-title">发布前建议</span><button class="btn btn-sm" onclick="addQaRow('warnings')">＋ 增加规则</button></div>${renderQaTable('warnings', q.warnings || [])}</div>
     <div class="config-card"><div class="card-title">评分权重设置</div><div id="weightBox">${renderWeights(q.scoreWeights || {})}</div><div class="weight-total" id="weightTotal"></div></div>
     <div class="form-actions"><button class="btn btn-green" onclick="saveQaRules(this)">保存QA设置</button><button class="btn" onclick="restoreTemplate('qa-rules')">恢复默认</button></div>`;
   updateWeightTotal();
 }
 function renderQaTable(type, rows) {
-  return `<table class="mini-table" id="${type}Tbl"><thead><tr><th>规则ID</th><th>检查项</th><th>错误说明</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => qaRow(r)).join('')}</tbody></table>`;
+  return `<table class="mini-table" id="${type}Tbl"><thead><tr><th>规则ID</th><th>检查项</th><th>提示说明</th><th style="width:44px"></th></tr></thead><tbody>${rows.map(r => qaRow(r)).join('')}</tbody></table>`;
 }
 function qaRow(r = {}) {
   return `<tr><td><input value="${escAttr(r.id || '')}"></td><td><select>${QA_CHECKS.map(v => `<option ${r.check===v?'selected':''}>${v}</option>`).join('')}</select></td><td><input value="${escAttr(r.message || '')}"></td><td><button class="btn btn-sm btn-icon" onclick="confirmRemove(this,'tr','删除这条 QA 规则？')">✕</button></td></tr>`;

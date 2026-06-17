@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.0 - C/B SOP Guides and Desktop Package
+
+- Adds an in-app “使用教程” panel.
+- Splits tutorials for C端 DTC/content sites and B端 foreign trade/manufacturing sites.
+- Adds C端 and B端 operation documents under `docs/USER-GUIDE-B2C.md` and `docs/USER-GUIDE-B2B.md`.
+- Updates QA wording from failure-style language to editorial attention points and publishing suggestions.
+- Adds Electron desktop shell under `desktop/`.
+- Adds `npm run desktop` and `npm run pack:win`.
+- Adds desktop packaging documentation.
+- Keeps the existing Express backend, `ui/index.html`, content pipeline, import center, WordPress draft publishing, and real `sites/` exclusion rules.
+
 ## v0.1.1 - Windows One-Click Start
 
 - Adds `start-windows.bat` and `scripts/start-windows.ps1` for Windows double-click startup.

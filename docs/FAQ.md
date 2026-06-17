@@ -1,25 +1,29 @@
 # FAQ
 
-## Is this a SaaS product?
+## 这是 SaaS 产品吗？
 
-No. Content Engine Lite v0.1 is a local internal workbench.
+不是。Content Engine Lite 是本地内部工作台，运行在使用者自己的电脑上。
 
-## Can it publish automatically?
+## 能不能自动发布？
 
-It can create WordPress drafts when configured, but generated content must be reviewed before publishing.
+可以把文章发布为 WordPress 草稿，但不建议无人审核直接正式发布。生成内容必须人工检查。
 
-## Does it guarantee SEO results?
+## 保证 SEO 效果吗？
 
-No. It does not guarantee rankings, traffic, inquiries, or sales.
+不保证。它不承诺排名、流量、询盘或成交。
 
-## Where is data stored?
+## 数据存在哪里？
 
-Local working data is stored under `sites/[siteId]/`. Release packages exclude `sites/`.
+真实工作数据存在本地 `sites/[siteId]/`。release 包默认排除 `sites/`。
 
-## Can I share the release zip publicly?
+## C端和B端有什么区别？
 
-No. The intended license is non-exclusive internal use only. Do not resell, publicly publish, redistribute, or upload it to a public repository.
+C端面向消费者购买决策，重点是品牌、人设、产品体验、教程、选购和 FAQ。B端面向采购、工程师、老板和项目经理，重点是公司可信度、参数、工艺、质检、应用场景、案例证据和 RFQ 转化。
 
-## Who pays model and server costs?
+## 可以公开分享 release zip 吗？
 
-The user or receiving organization pays API, model, WordPress, hosting, and server costs.
+不可以。默认交付边界是非独占内部使用，不允许转售、公开发布、二次分发或上传公开仓库。
+
+## 模型和服务器费用谁承担？
+
+API、模型、WordPress、服务器和本地运行环境成本由使用方承担。

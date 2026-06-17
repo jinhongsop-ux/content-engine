@@ -20,6 +20,7 @@ function exists(file) {
 }
 
 ok('main.js exists', exists('main.js'));
+ok('desktop/main.cjs exists', exists('desktop/main.cjs'));
 ok('start-windows.bat exists', exists('start-windows.bat'));
 ok('stop-windows.bat exists', exists('stop-windows.bat'));
 ok('engine/api.js exists', exists('engine/api.js'));
@@ -39,7 +40,10 @@ for (const marker of [
   'data-panel="keywords"',
   'data-panel="config"',
   'data-panel="files"',
+  'data-panel="guide"',
   'data-panel="settings"',
+  'GUIDE_FLOWS',
+  'renderGuide',
   'config-project-instructions',
   'workspace-body',
   'settings-wordpress',
@@ -74,5 +78,11 @@ for (const marker of [
 ]) {
   ok(`api marker ${marker}`, api.includes(marker));
 }
+
+const pkg = JSON.parse(read('package.json'));
+ok('package desktop main', pkg.main === 'desktop/main.cjs');
+ok('package desktop script', Boolean(pkg.scripts?.desktop));
+ok('package pack:win script', Boolean(pkg.scripts?.['pack:win']));
+ok('electron builder excludes sites', JSON.stringify(pkg.build || {}).includes('!sites/**/*'));
 
 console.log(`Smoke test passed (${checks.length} checks).`);

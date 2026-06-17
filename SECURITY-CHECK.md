@@ -1,6 +1,6 @@
 # Security Check
 
-This file summarizes the security review for Content Engine Lite v0.1 packaging.
+This file summarizes the security review for Content Engine Lite v0.2.0 packaging.
 
 ## Checked Areas
 
@@ -9,21 +9,27 @@ This file summarizes the security review for Content Engine Lite v0.1 packaging.
 - `ui/` frontend file.
 - `templates/` default strategy files.
 - `examples/` deliverable examples.
+- `docs/` documentation.
+- `desktop/` Electron shell files.
+- `scripts/` release and smoke scripts.
 - `sites/` real local site data, for risk identification only.
 
 ## Findings
 
 - Real local site data exists under `sites/`.
-- At least one real WordPress Application Password pattern was found in local `sites/` data.
-- Real article outputs and generated assets exist under site output folders.
+- Local `sites/` data may contain WordPress Application Passwords, production domains, article outputs, generated assets, customer notes, and API-related settings.
 - No real API key is intentionally added to `.env.example` or `examples/demo-site/`.
-- Brand-specific template residue found in global UI/templates was replaced with generic wording before building the release package.
+- The demo site uses fictional data only.
+- The Electron desktop shell starts the existing local Express app; it does not add a cloud backend or external credential storage.
 
 ## Packaging Rule
 
-The release builder excludes the entire `sites/` directory. Real local site data is allowed to remain on the user's machine, but it is not packaged into `release/Content-Engine-Lite-v0.1.zip`.
+The release builder and Electron builder both exclude the entire `sites/` directory. Real local site data is allowed to remain on the user's machine, but it is not packaged into deliverables.
 
-The generated release zip was checked for blocked paths. Result: no `.git`, `node_modules`, `sites`, `outputs`, `.env`, logs, or runtime folders were found in the zip.
+Expected deliverables:
+
+- `release/Content-Engine-Lite-v0.2.0.zip`
+- `dist/Content-Engine-Lite-0.2.0-x64.exe`
 
 ## Excluded From Release
 
@@ -33,9 +39,11 @@ The generated release zip was checked for blocked paths. Result: no `.git`, `nod
 - `.env.*`
 - `sites/`
 - `release/`
+- `dist/`
 - `logs/`
 - `runtime/`
 - `outputs/`
+- `site-recycle-bin/`
 - `server.out.log`
 - `server.err.log`
 - temporary and backup files
@@ -43,6 +51,6 @@ The generated release zip was checked for blocked paths. Result: no `.git`, `nod
 ## User Responsibilities
 
 - Do not paste real API keys into source files.
-- Store runtime secrets in local environment variables or the UI when needed.
+- Store runtime secrets in local `.env`, system environment variables, or the UI only when needed.
 - Review all generated content before publishing.
 - Keep real customer and production site data outside public repositories and shared release packages.
